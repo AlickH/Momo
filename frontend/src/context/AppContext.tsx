@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { api, ApiError } from '../lib/api';
 import { usePolling } from '../hooks/usePolling';
 import { useToast } from './ToastContext';
@@ -109,6 +109,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const statusPoll = usePolling<Status>(() => api.get('status'), 5000, { enabled: meReady });
   const [traffic, setTraffic] = useState<Traffic | null>(null);
+  const pendingTraffic = useRef<Traffic | null>(null);
+  const frameScheduled = useRef(false);
+
+  const scheduleTraffic = useCallback((snapshot: Traffic) => {
+    pendingTraffic.current = snapshot;
+    if (frameScheduled.current) return;
+    frameScheduled.current = true;
+    requestAnimationFrame(() => {
+      frameScheduled.current = false;
+      if (!pendingTraffic.current) return;
+      setTraffic(pendingTraffic.current);
+      pendingTraffic.current = null;
+    });
+  }, []);
 
   useEffect(() => {
     if (!meReady) {
@@ -119,7 +133,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     let retry: ReturnType<typeof setTimeout> | undefined;
     const connect = async () => {
       try {
-        await api.stream<Traffic>('traffic/stream', setTraffic, controller.signal);
+        await api.stream<Traffic>('traffic/stream', scheduleTraffic, controller.signal);
       } catch {
         if (controller.signal.aborted) return;
       }
@@ -130,7 +144,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       controller.abort();
       if (retry) clearTimeout(retry);
     };
-  }, [meReady]);
+  }, [meReady, scheduleTraffic]);
 
   const refreshStatus = useCallback(async () => statusPoll.refresh(), [statusPoll]);
   const refreshTraffic = useCallback(async () => {

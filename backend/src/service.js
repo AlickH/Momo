@@ -43,7 +43,7 @@ class MomoService {
     this.profileUpdateRunning = false;
     this.core.on('state', (state) => {
       if (state.state === 'running' && this.core.controller) {
-        this.stats.attach({ controller: this.core.controller, pid: this.core.pid });
+        this.stats.attach({ controller: this.core.controller });
         void this.applyTransparentRules();
       } else {
         this.stats.detach();
@@ -234,14 +234,22 @@ class MomoService {
     const active = this.profiles.active();
     const core = this.core.snapshot();
     const traffic = this.stats.snapshot();
-    const connections = this.stats.connectionsSnapshot();
+    let connectionCount = 0;
+    if (core.state === 'running' && this.core.controller) {
+      try {
+        const data = await this.core.controller.connections();
+        connectionCount = Array.isArray(data?.connections) ? data.connections.length : 0;
+      } catch {
+        connectionCount = 0;
+      }
+    }
     return {
       core,
       settings: this.settings.get(),
       activeProfile: active ? this.profiles.summary(active) : null,
       profileCount: this.profiles.list().length,
       traffic: { up: traffic.up, down: traffic.down, upTotal: traffic.upTotal, downTotal: traffic.downTotal, memory: traffic.memory },
-      connections: Array.isArray(connections.connections) ? connections.connections.length : 0,
+      connections: connectionCount,
       app: {
         version: this.env.version,
         gatewayPrefix: this.env.gatewayPrefix,
@@ -649,7 +657,7 @@ class MomoService {
   }
 
   async getConnections() {
-    const data = this.stats.connectionsSnapshot();
+    const data = await this.core.controllerOrThrow().connections();
     const connections = (Array.isArray(data.connections) ? data.connections : []).map((item) => ({
       id: item.id,
       host: item.metadata?.host || item.metadata?.sniffHost || item.metadata?.destinationIP || '',

@@ -7,6 +7,12 @@ class ControllerClient {
     this.timeoutMs = timeoutMs;
   }
 
+  wsUrl(path) {
+    const url = new URL(path, this.base.replace(/^http/, 'ws'));
+    url.searchParams.set('token', this.secret);
+    return url.toString();
+  }
+
   async request(method, path, body, { timeoutMs = this.timeoutMs } = {}) {
     let response;
     try {
