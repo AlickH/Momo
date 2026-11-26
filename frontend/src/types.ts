@@ -21,6 +21,9 @@ export interface Settings {
   ipv6: boolean;
   unifiedDelay: boolean;
   tcpConcurrent: boolean;
+  subscriptionUpdateHours: number;
+  dnsPort: number;
+  dnsNameserver: string;
 }
 
 export interface SubscriptionInfo {

@@ -11,10 +11,16 @@ test('validateSettings applies defaults and rejects invalid values', () => {
     ipv6: false,
     unifiedDelay: true,
     tcpConcurrent: true,
+    subscriptionUpdateHours: 0,
+    dnsPort: 1053,
+    dnsNameserver: '',
   });
   assert.equal(validateSettings({ mixedPort: 1080 }).mixedPort, 1080);
   assert.throws(() => validateSettings({ mixedPort: 80 }), /端口/);
   assert.throws(() => validateSettings({ mode: 'turbo' }), /模式/);
   assert.throws(() => validateSettings({ logLevel: 'verbose' }), /日志级别/);
   assert.throws(() => validateSettings({ allowLan: 'yes' }), /allowLan/);
+  assert.equal(validateSettings({ subscriptionUpdateHours: 12 }).subscriptionUpdateHours, 12);
+  assert.throws(() => validateSettings({ dnsPort: 53 }), /DNS 端口/);
+  assert.equal(validateSettings({ dnsNameserver: 'https://doh.pub/dns-query' }).dnsNameserver, 'https://doh.pub/dns-query');
 });

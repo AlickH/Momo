@@ -1,12 +1,12 @@
 import { useDeferredValue, useMemo, useState } from 'react';
-import { ArrowDownLeft, ArrowUpRight, Cable, RefreshCw, SearchX, Timer, X, XCircle } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, Cable, Eye, RefreshCw, SearchX, Timer, X, XCircle } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { usePolling } from '../hooks/usePolling';
 import { useNow } from '../hooks/useNow';
 import { api } from '../lib/api';
 import { useToast } from '../context/ToastContext';
-import { formatBytes, formatDuration } from '../lib/format';
-import { Badge, Button, Card, ConfirmDialog, EmptyState, SearchInput, Skeleton } from '../components/ui';
+import { formatBytes, formatDate, formatDuration } from '../lib/format';
+import { Badge, Button, Card, ConfirmDialog, CopyButton, EmptyState, Modal, SearchInput, Skeleton } from '../components/ui';
 import { cn } from '../lib/cn';
 import type { Connection, ConnectionsData } from '../types';
 
@@ -32,6 +32,7 @@ export function ConnectionsPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [confirmAll, setConfirmAll] = useState(false);
   const [limit, setLimit] = useState(200);
+  const [detail, setDetail] = useState<Connection | null>(null);
 
   const filtered = useMemo(() => {
     const items = connections.data?.connections ?? [];
@@ -128,7 +129,7 @@ export function ConnectionsPage() {
                 </thead>
                 <tbody>
                   {visible.map((connection) => (
-                    <tr key={connection.id} className="group border-b border-line/5 transition hover:bg-surface2/40">
+                    <tr key={connection.id} className="group cursor-pointer border-b border-line/5 transition hover:bg-surface2/40" onClick={() => setDetail(connection)}>
                       <td className="max-w-[260px] px-4 py-2.5">
                         <div className="truncate text-[12px] font-medium text-ink">{connection.host || '—'}</div>
                         <div className="mono mt-0.5 truncate text-[10px] text-muted/60">{connection.destinationIP}:{connection.destinationPort}</div>
@@ -159,15 +160,25 @@ export function ConnectionsPage() {
                       </td>
                       <td className="px-3 py-2.5 text-right text-[11px] text-muted tabular">{formatDuration(durationOf(connection.start, now))}</td>
                       <td className="px-2 py-2.5">
-                        <button
-                          type="button"
-                          onClick={() => { void closeOne(connection); }}
-                          disabled={busy !== null}
-                          className="flex h-6 w-6 items-center justify-center rounded text-muted/40 opacity-0 transition hover:bg-danger/10 hover:text-danger disabled:opacity-20 group-hover:opacity-100"
-                          title="关闭连接"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
+                        <div className="flex items-center gap-0.5">
+                          <button
+                            type="button"
+                            onClick={(event) => { event.stopPropagation(); setDetail(connection); }}
+                            className="flex h-6 w-6 items-center justify-center rounded text-muted/40 opacity-0 transition hover:bg-surface3 hover:text-ink group-hover:opacity-100"
+                            title="连接详情"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(event) => { event.stopPropagation(); void closeOne(connection); }}
+                            disabled={busy !== null}
+                            className="flex h-6 w-6 items-center justify-center rounded text-muted/40 opacity-0 transition hover:bg-danger/10 hover:text-danger disabled:opacity-20 group-hover:opacity-100"
+                            title="关闭连接"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -177,14 +188,14 @@ export function ConnectionsPage() {
 
             <div className="divide-y divide-line/5 md:hidden">
               {visible.map((connection) => (
-                <div key={connection.id} className="p-3.5">
+                <div key={connection.id} className="cursor-pointer p-3.5" onClick={() => setDetail(connection)}>
                   <div className="flex items-start gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-[13px] font-medium text-ink">{connection.host || '—'}</div>
                       <div className="mono mt-0.5 truncate text-[10px] text-muted/60">{connection.destinationIP}:{connection.destinationPort}</div>
                     </div>
                     <Badge tone={networkTone(connection.network)}>{connection.network || '—'}</Badge>
-                    <button type="button" onClick={() => { void closeOne(connection); }} disabled={busy !== null} className="p-1 text-muted/50 hover:text-danger" aria-label="关闭连接"><X className="h-3.5 w-3.5" /></button>
+                    <button type="button" onClick={(event) => { event.stopPropagation(); void closeOne(connection); }} disabled={busy !== null} className="p-1 text-muted/50 hover:text-danger" aria-label="关闭连接"><X className="h-3.5 w-3.5" /></button>
                   </div>
                   <div className="mt-2 flex flex-wrap items-center gap-1">
                     {connection.chains.map((chain, index) => <span key={`${chain}-${index}`} className="rounded border border-line/8 bg-surface3 px-1 py-0.5 text-[10px] text-muted">{chain}</span>)}
@@ -208,6 +219,61 @@ export function ConnectionsPage() {
           </>
         )}
       </Card>
+
+      <Modal
+        open={Boolean(detail)}
+        onClose={() => setDetail(null)}
+        title="连接详情"
+        description={detail ? `${detail.host || detail.destinationIP || '未知目标'} · ${formatDuration(durationOf(detail.start, now))}` : undefined}
+        size="md"
+        footer={detail ? (
+          <>
+            <Button variant="ghost" size="sm" onClick={() => setDetail(null)}>关闭</Button>
+            <Button variant="danger" size="sm" icon={<X className="h-3.5 w-3.5" />} loading={busy === detail.id} onClick={() => { void closeOne(detail).then(() => setDetail(null)); }}>断开连接</Button>
+          </>
+        ) : undefined}
+      >
+        {detail ? (
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { label: '目标域名', value: detail.host || '—' },
+                { label: '目标地址', value: `${detail.destinationIP || '—'}:${detail.destinationPort || '—'}` },
+                { label: '来源地址', value: detail.sourceIP || '—' },
+                { label: '网络 / 类型', value: `${detail.network || '—'} / ${detail.type || '—'}` },
+                { label: '进程', value: detail.process || '—' },
+                { label: '开始时间', value: formatDate(detail.start) },
+              ].map((item) => (
+                <div key={item.label} className="rounded-lg border border-line/8 bg-surface2/40 px-3 py-2">
+                  <div className="text-[10px] uppercase tracking-[0.12em] text-muted/60">{item.label}</div>
+                  <div className="mt-1 break-all text-[12px] text-ink/90">{item.value}</div>
+                </div>
+              ))}
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-lg border border-line/8 bg-surface2/40 px-3 py-2">
+                <div className="text-[10px] uppercase tracking-[0.12em] text-muted/60">上传 / 下载</div>
+                <div className="mt-1 text-[12px] text-ink/90">↑ {formatBytes(detail.upload)} · ↓ {formatBytes(detail.download)}</div>
+              </div>
+              <div className="rounded-lg border border-line/8 bg-surface2/40 px-3 py-2">
+                <div className="text-[10px] uppercase tracking-[0.12em] text-muted/60">代理链</div>
+                <div className="mt-1 flex flex-wrap gap-1">{detail.chains.map((chain, index) => <span key={`${chain}-${index}`} className="rounded border border-line/8 bg-surface3 px-1 py-0.5 text-[10px] text-ink/80">{chain}</span>)}</div>
+              </div>
+            </div>
+            <div className="rounded-lg border border-line/8 bg-surface2/40 px-3 py-2">
+              <div className="text-[10px] uppercase tracking-[0.12em] text-muted/60">规则</div>
+              <div className="mt-1 text-[12px] text-ink/90">{detail.rule || '—'}{detail.rulePayload ? ` · ${detail.rulePayload}` : ''}</div>
+            </div>
+            <div className="flex items-center justify-between rounded-lg border border-line/8 bg-surface2/40 px-3 py-2">
+              <div className="min-w-0">
+                <div className="text-[10px] uppercase tracking-[0.12em] text-muted/60">连接 ID</div>
+                <div className="mt-1 truncate font-mono text-[10px] text-muted">{detail.id}</div>
+              </div>
+              <CopyButton text={detail.id} />
+            </div>
+          </div>
+        ) : null}
+      </Modal>
 
       <ConfirmDialog
         open={confirmAll}

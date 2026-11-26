@@ -17,10 +17,11 @@ Momo 以 fnOS Native 进程方式运行：Node.js 后端托管 mihomo、管理�
 ## 功能
 
 - **内核托管**：使用 vernesong/mihomo 的 **smart 内核**（含 LightGBM 模型）；支持启动、停止、重启，异常退出后按退避策略重启，日志写入应用数据目录。
-- **订阅管理**：支持订阅链接、粘贴 YAML、导入文件；自动识别 Base64 订阅、`subscription-userinfo` 流量与到期信息。
+- **订阅管理**：支持订阅链接、粘贴 YAML、导入文件；自动识别 Base64 订阅、`subscription-userinfo` 流量与到期信息；可设置自动更新间隔并一键更新全部订阅。
 - **代理选择**：策略组、节点延迟测速、节点切换、代理提供者更新与健康检查。
-- **实时观察**：流量曲线、连接列表、规则命中、内核日志，支持筛选与关闭连接。
-- **配置编辑**：代理端口、局域网访问、IPv6、模式、日志级别、统一延迟、TCP 并发。
+- **实时观察**：流量曲线、连接列表（含详情弹窗）、规则命中、内核日志，支持筛选与关闭连接。
+- **配置编辑**：代理端口、局域网访问、IPv6、模式、日志级别、统一延迟、TCP 并发、DNS 监听端口/上游。
+- **备份恢复**：导出包含设置和全部订阅内容的 JSON 备份，可在重装后恢复。
 - **原生外观**：200px 侧边栏、悬浮圆角内容面板、Ant Design 风格配色，自动跟随 fnOS 明暗主题。
 - **最小权限**：以专用 `momo` 用户运行，不申请 root，不声明共享目录；控制器只监听 `127.0.0.1`。
 
@@ -44,7 +45,7 @@ Node.js 后端（Express）
 - 数据目录：`${TRIM_PKGVAR}`（通常是 `/vol1/@appdata/momo`）
 - 管理入口：`/app/momo`，仅管理员可见
 - 默认代理端口：`7890`（HTTP + SOCKS5 混合端口）
-- 内核：Mihomo Meta `alpha-smart-1348c4d`（[vernesong/mihomo](https://github.com/vernesong/mihomo) 的 smart 分支）
+- 内核：Mihomo Meta `alpha-smart-1348c4d`（[vernesong/mihomo](https://github.com/vernesong/mihomo) 的 smart 分支），随包附带 LightGBM 模型与 ASN 数据库
 
 ## 目录结构
 
@@ -73,8 +74,8 @@ Node.js 后端（Express）
 - 飞牛 fnOS `>= 1.1.3100`（统一网关）
 - 商店依赖 `nodejs_v24`（manifest 中已声明，安装时自动处理）
 - 按设备架构选择 FPK：
-  - x86 设备：`dist/momo_1.0.3_x86.fpk`
-  - ARM 设备：`dist/momo_1.0.3_arm.fpk`
+  - x86 设备：`dist/momo_1.0.6_x86.fpk`
+  - ARM 设备：`dist/momo_1.0.6_arm.fpk`
 
 安装步骤：
 
@@ -115,8 +116,8 @@ node scripts/build.mjs --arch=x86
 产物：
 
 ```text
-dist/momo_1.0.3_x86.fpk
-dist/momo_1.0.3_arm.fpk
+dist/momo_1.0.6_x86.fpk
+dist/momo_1.0.6_arm.fpk
 dist/SHA256SUMS
 ```
 
@@ -178,9 +179,23 @@ npm test
 - mihomo 控制器绑定随机 `127.0.0.1` 端口，Secret 仅保存在内存和 `config.yaml` 中，不下发前端。
 - 统一网关 Socket 权限为 `660`，非应用用户无法直接连接。
 
+## 与 ShellCrash 的功能取舍
+
+参考 NAS 上 ShellCrash 的能力，Momo 已经吸收：
+
+- 订阅自动更新与全部更新
+- 一键启动/停止/重启内核
+- 备份与恢复
+- 代理端口、DNS 端口与 DNS 上游设置
+- 代理提供者批量更新
+
+以下能力受 fnOS 应用权限模型或产品范围限制，未纳入：透明代理/Redir/TUN、防火墙与端口转发、DDNS、Telegram Bot、内核自更新。需要这类系统级能力时仍应使用具备 root 权限的 ShellCrash。
+
 ## 已知限制
 
 - 使用 HTTP/SOCKS5 混合代理，**不创建 TUN 虚拟网卡**。fnOS 包用户没有网络管理权限，因此不提供透明代理/TUN 开关；需要透明代理请改用具备特权的独立部署。
+- 订阅配置中的 `dns.listen` 会被应用设置中的 DNS 端口覆盖（默认 `1053`），避免 package 用户无法监听 53 等特权端口；可在设置中修改 DNS 上游。
+- 切换订阅不做完整的 `mihomo -t` 预校验，避免订阅内 provider 网络拉取导致切换超时；配置写入后由 mihomo 热重载或重启直接应用，失败会回滚到原配置并在界面显示错误。
 - 订阅下载依赖 NAS 自身能访问订阅地址；如果订阅地址只能通过代理访问，请先粘贴配置。
 - 未签名 FPK 只适合本地安装测试，正式发布需开发者证书。
 - 面板需要管理员权限，不支持多用户隔离。
@@ -200,12 +215,16 @@ npm test
 | POST | `/proxies/select` `/proxies/delay` | 选择节点 / 延迟测速 |
 | GET/POST | `/profiles` | 列出 / 添加配置 |
 | POST | `/profiles/:id/activate` `/update` | 启用 / 更新订阅 |
+| POST | `/profiles/update-all` | 更新全部链接订阅 |
+| POST | `/providers/update-all` | 更新全部代理提供者 |
+| GET | `/backup` | 导出设置与全部订阅 |
+| POST | `/restore` | 恢复备份 |
 | GET | `/logs` | 增量日志 |
 
 ## 代码说明
 
 - 后端入口 `backend/src/index.js`，业务编排在 `backend/src/service.js`，mihomo 进程管理在 `backend/src/core.js`。
-- 配置合并/覆盖与 `mihomo -t` 校验在 `backend/src/config-builder.js`。
+- 配置合并/覆盖（端口、DNS、控制器等）在 `backend/src/config-builder.js`。
 - 生命周期脚本在 `packaging/cmd/`；统一网关与桌面入口在 `packaging/app/ui/config`。
 - 前端 `AppContext` 负责轮询、主题与 API 状态；`Layout` + `Sidebar` + `Topbar` 实现 fnOS 原生窗口壳。
 

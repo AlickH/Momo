@@ -63,6 +63,7 @@ export function ProfilesPage() {
   const [url, setUrl] = useState('');
   const [content, setContent] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [updatingAll, setUpdatingAll] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Profile | null>(null);
   const [viewing, setViewing] = useState<Profile | null>(null);
@@ -72,6 +73,7 @@ export function ProfilesPage() {
 
   const items = profiles.data?.profiles ?? [];
   const active = useMemo(() => items.find((item) => item.active) ?? status?.activeProfile ?? null, [items, status?.activeProfile]);
+  const hasUrlProfiles = items.some((item) => item.source === 'url');
 
   const resetForm = () => {
     setName('');
@@ -95,7 +97,7 @@ export function ProfilesPage() {
       await api.post('profiles', {
         name: name.trim() || undefined,
         ...(tab === 'url' ? { url: url.trim() } : { content }),
-      }, { timeoutMs: 60000 });
+      }, { timeoutMs: 120000 });
       await Promise.all([profiles.refresh(), refreshStatus()]);
       setAddOpen(false);
       resetForm();
@@ -108,10 +110,34 @@ export function ProfilesPage() {
     }
   };
 
+  const updateAll = async () => {
+    setUpdatingAll(true);
+    try {
+      const result = await api.post<{ results: { name: string; ok: boolean; error?: string }[] }>(
+        'profiles/update-all',
+        undefined,
+        { timeoutMs: 300000 },
+      );
+      await Promise.all([profiles.refresh(), refreshStatus()]);
+      const failed = result.results.filter((item) => !item.ok);
+      if (failed.length) {
+        toast(`更新完成，${failed.length} 个订阅失败：${failed.map((item) => item.name).join('、')}`, 'error');
+      } else if (result.results.length) {
+        toast(`已更新 ${result.results.length} 个订阅`, 'success');
+      } else {
+        toast('没有可更新的订阅链接', 'info');
+      }
+    } catch (error) {
+      toast(error instanceof Error ? error.message : '全部更新失败', 'error');
+    } finally {
+      setUpdatingAll(false);
+    }
+  };
+
   const activate = async (profile: Profile) => {
     setBusy(`activate:${profile.id}`);
     try {
-      await api.post(`profiles/${profile.id}/activate`, undefined, { timeoutMs: 60000 });
+      await api.post(`profiles/${profile.id}/activate`, undefined, { timeoutMs: 120000 });
       await Promise.all([profiles.refresh(), refreshStatus()]);
       toast(`已启用 ${profile.name}`, 'success');
     } catch (error) {
@@ -124,7 +150,7 @@ export function ProfilesPage() {
   const update = async (profile: Profile) => {
     setBusy(`update:${profile.id}`);
     try {
-      await api.post(`profiles/${profile.id}/update`, undefined, { timeoutMs: 60000 });
+      await api.post(`profiles/${profile.id}/update`, undefined, { timeoutMs: 120000 });
       await Promise.all([profiles.refresh(), refreshStatus()]);
       toast(`${profile.name} 已更新`, 'success');
     } catch (error) {
@@ -190,6 +216,7 @@ export function ProfilesPage() {
         <p className="text-[12px] text-muted">支持 Clash / mihomo YAML 订阅，启用后热加载到内核。</p>
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" icon={<RefreshCw className="h-3.5 w-3.5" />} loading={profiles.refreshing} onClick={() => { void profiles.refresh(); }}>刷新</Button>
+          <Button variant="secondary" size="sm" icon={<CloudDownload className="h-3.5 w-3.5" />} loading={updatingAll} disabled={!hasUrlProfiles} onClick={() => { void updateAll(); }}>全部更新</Button>
           <Button variant="primary" size="sm" icon={<Plus className="h-4 w-4" />} onClick={() => setAddOpen(true)}>添加订阅</Button>
         </div>
       </div>

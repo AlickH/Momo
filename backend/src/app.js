@@ -125,6 +125,9 @@ function createApp({ env, service, logger }) {
     if (!name) throw badRequest('缺少提供者名称');
     res.json(await service.updateProvider(name));
   }));
+  api.post('/providers/update-all', asyncRoute(async (req, res) => {
+    res.json(await service.updateAllProviders());
+  }));
   api.post('/providers/healthcheck', asyncRoute(async (req, res) => {
     const name = req.body?.name;
     if (!name) throw badRequest('缺少提供者名称');
@@ -149,6 +152,9 @@ function createApp({ env, service, logger }) {
   api.post('/profiles/:id/update', asyncRoute(async (req, res) => {
     res.json({ profile: await service.updateProfile(req.params.id) });
   }));
+  api.post('/profiles/update-all', asyncRoute(async (req, res) => {
+    res.json(await service.updateAllProfiles());
+  }));
   api.post('/profiles/:id/activate', asyncRoute(async (req, res) => {
     res.json({ profile: await service.activateProfile(req.params.id) });
   }));
@@ -158,6 +164,14 @@ function createApp({ env, service, logger }) {
   api.delete('/profiles/:id', asyncRoute(async (req, res) => {
     await service.deleteProfile(req.params.id);
     res.json({ ok: true });
+  }));
+
+  api.get('/backup', asyncRoute(async (req, res) => {
+    res.setHeader('Content-Disposition', 'attachment; filename="momo-backup.json"');
+    res.json(await service.exportBackup());
+  }));
+  api.post('/restore', asyncRoute(async (req, res) => {
+    res.json({ status: await service.restoreBackup(req.body) });
   }));
 
   api.get('/logs', asyncRoute(async (req, res) => {

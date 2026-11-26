@@ -206,6 +206,50 @@ class ProfileManager {
     return this.summary(item);
   }
 
+
+  async exportAll() {
+    const items = [];
+    for (const item of this.items) {
+      items.push({ ...this.summary(item), content: await this.readContent(item.id) });
+    }
+    return { activeId: this.activeId, items };
+  }
+
+  async importAll({ activeId, items }) {
+    if (!Array.isArray(items)) throw badRequest('备份中的配置列表无效');
+    const prepared = [];
+    const seen = new Set();
+    for (const entry of items) {
+      if (!entry || typeof entry.content !== 'string') throw badRequest('备份中的配置内容无效');
+      const parsed = parseProfile(entry.content);
+      let id = typeof entry.id === 'string' ? entry.id : '';
+      if (!/^p_[a-f0-9]{12}$/.test(id) || seen.has(id)) id = `p_${crypto.randomBytes(6).toString('hex')}`;
+      while (seen.has(id)) id = `p_${crypto.randomBytes(6).toString('hex')}`;
+      seen.add(id);
+      prepared.push({
+        item: {
+          id,
+          name: cleanName(entry.name, 60) || '恢复的配置',
+          source: entry.source === 'url' ? 'url' : 'manual',
+          url: typeof entry.url === 'string' ? entry.url : null,
+          createdAt: Number(entry.createdAt) || Date.now(),
+          updatedAt: Number(entry.updatedAt) || Date.now(),
+          proxyCount: parsed.proxyCount,
+          providerCount: parsed.providerCount,
+          subscription: entry.subscription && typeof entry.subscription === 'object' ? entry.subscription : null,
+        },
+        content: parsed.content,
+      });
+    }
+    const existing = [...this.items];
+    for (const item of existing) await fs.rm(this.fileFor(item.id), { force: true });
+    for (const entry of prepared) await writeFileAtomic(this.fileFor(entry.item.id), entry.content, 0o600);
+    this.items = prepared.map((entry) => entry.item);
+    this.activeId = this.items.some((item) => item.id === activeId) ? activeId : null;
+    await this.persist();
+    return this.list();
+  }
+
   async rename(id, name) {
     const item = this.get(id);
     const next = cleanName(name, 60);

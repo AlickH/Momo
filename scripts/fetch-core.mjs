@@ -47,6 +47,11 @@ const GEO_FILES = [
     url: 'https://github.com/vernesong/mihomo/releases/download/LightGBM-Model/Model.bin',
     sha256: '23633022a815fb34e510befe1c176ba50af3ced48f08b172454f4cd6b8327788',
   },
+  {
+    name: 'ASN.mmdb',
+    url: 'https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/GeoLite2-ASN.mmdb',
+    sha256: 'ba7c4964c71b51d28dc23eefd5e4376801bf90472d26f766648aae003af9388e',
+  },
 ];
 
 function sha256(buffer) {

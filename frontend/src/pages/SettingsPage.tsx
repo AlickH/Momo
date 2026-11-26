@@ -18,6 +18,9 @@ import {
   Sun,
   Moon,
   Monitor,
+  Download,
+  Upload,
+  DatabaseBackup,
 } from 'lucide-react';
 import { useApp, type ThemeMode } from '../context/AppContext';
 import { api } from '../lib/api';
@@ -60,6 +63,9 @@ export function SettingsPage() {
   const [reloading, setReloading] = useState(false);
   const [confirmRestart, setConfirmRestart] = useState(false);
   const [confirmStop, setConfirmStop] = useState(false);
+  const [backupBusy, setBackupBusy] = useState(false);
+  const [restoreBusy, setRestoreBusy] = useState(false);
+  const [pendingRestore, setPendingRestore] = useState<Record<string, unknown> | null>(null);
 
   const savedKey = JSON.stringify(saved);
   const dirty = JSON.stringify(form) !== savedKey;
@@ -146,6 +152,63 @@ export function SettingsPage() {
 
   const clientAddress = useMemo(() => `http://${form.allowLan ? window.location.hostname : '127.0.0.1'}:${form.mixedPort}`, [form.allowLan, form.mixedPort]);
 
+  const downloadBackup = async () => {
+    setBackupBusy(true);
+    try {
+      const backup = await api.get<Record<string, unknown>>('backup', { timeoutMs: 60000 });
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json;charset=utf-8' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `momo-backup-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.json`;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(link.href), 2000);
+      toast('备份已下载', 'success');
+    } catch (error) {
+      toast(error instanceof Error ? error.message : '备份失败', 'error');
+    } finally {
+      setBackupBusy(false);
+    }
+  };
+
+  const chooseRestoreFile = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json,application/json';
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      if (file.size > 10 * 1024 * 1024) {
+        toast('备份文件不能超过 10 MB', 'error');
+        return;
+      }
+      try {
+        const parsed = JSON.parse(await file.text()) as Record<string, unknown>;
+        if (parsed.format !== 'momo-backup') throw new Error('不是 Momo 备份文件');
+        setPendingRestore(parsed);
+      } catch (error) {
+        toast(error instanceof Error ? error.message : '读取备份失败', 'error');
+      }
+    };
+    input.click();
+  };
+
+  const restoreBackup = async () => {
+    if (!pendingRestore) return;
+    setRestoreBusy(true);
+    try {
+      await api.post('restore', pendingRestore, { timeoutMs: 180000 });
+      setPendingRestore(null);
+      const result = await api.get<{ settings: Settings }>('settings');
+      setForm(result.settings);
+      await refreshStatus();
+      toast('备份已恢复，配置已应用', 'success');
+    } catch (error) {
+      toast(error instanceof Error ? error.message : '恢复失败', 'error');
+    } finally {
+      setRestoreBusy(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -220,6 +283,56 @@ export function SettingsPage() {
               </SettingRow>
             </div>
             {portChanged ? <p className="mt-3 rounded-lg border border-warning/15 bg-warning/6 px-3 py-2 text-[11px] leading-relaxed text-warning">端口已修改，保存后内核会重启，当前连接会中断。</p> : null}
+          </Card>
+
+          <Card>
+            <div className="flex items-center gap-2 border-b border-line/8 pb-3">
+              <RefreshCw className="h-4 w-4 text-accent" />
+              <h3 className="text-sm font-semibold text-ink">订阅更新</h3>
+            </div>
+            <div className="pt-1">
+              <SettingRow title="自动更新订阅" description="定时更新所有订阅链接的配置；关闭后只能手动更新。">
+                <select
+                  value={form.subscriptionUpdateHours}
+                  onChange={(event) => setForm((prev) => ({ ...prev, subscriptionUpdateHours: Number(event.target.value) }))}
+                  className="focus-ring h-9 rounded-lg border border-line/10 bg-surface2 px-2.5 text-xs text-ink"
+                >
+                  <option value={0}>关闭</option>
+                  <option value={6}>每 6 小时</option>
+                  <option value={12}>每 12 小时</option>
+                  <option value={24}>每天</option>
+                  <option value={48}>每 2 天</option>
+                  <option value={168}>每周</option>
+                </select>
+              </SettingRow>
+            </div>
+          </Card>
+
+          <Card>
+            <div className="flex items-center gap-2 border-b border-line/8 pb-3">
+              <Gauge className="h-4 w-4 text-accent" />
+              <h3 className="text-sm font-semibold text-ink">DNS</h3>
+            </div>
+            <div className="pt-1">
+              <SettingRow title="DNS 监听端口" description="mihomo 内置 DNS 监听端口，使用 1024 以上端口避免权限问题。">
+                <input
+                  type="number"
+                  min={1024}
+                  max={65535}
+                  value={form.dnsPort}
+                  onChange={(event) => setForm((prev) => ({ ...prev, dnsPort: Number(event.target.value) }))}
+                  className="focus-ring h-9 w-24 rounded-lg border border-line/10 bg-surface2 px-2.5 text-right text-sm text-ink tabular"
+                />
+              </SettingRow>
+              <SettingRow title="DNS 服务器" description="留空沿用订阅配置；填写后覆盖 dns.nameserver，多个用逗号分隔。">
+                <input
+                  value={form.dnsNameserver}
+                  onChange={(event) => setForm((prev) => ({ ...prev, dnsNameserver: event.target.value }))}
+                  placeholder="https://doh.pub/dns-query, 223.5.5.5"
+                  className="focus-ring h-9 w-[260px] max-w-full rounded-lg border border-line/10 bg-surface2 px-2.5 text-xs text-ink placeholder:text-muted/50"
+                />
+              </SettingRow>
+            </div>
           </Card>
 
           <Card>
@@ -313,6 +426,18 @@ export function SettingsPage() {
 
           <Card>
             <div className="flex items-center gap-2 border-b border-line/8 pb-3">
+              <DatabaseBackup className="h-4 w-4 text-accent" />
+              <h3 className="text-sm font-semibold text-ink">备份与恢复</h3>
+            </div>
+            <p className="mt-3 text-[11px] leading-relaxed text-muted">备份包含应用设置和全部订阅内容，不包含内核二进制、日志和节点选择缓存。备份文件含订阅 token，请妥善保存。</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button variant="secondary" size="sm" icon={<Download className="h-3.5 w-3.5" />} loading={backupBusy} onClick={() => { void downloadBackup(); }}>下载备份</Button>
+              <Button variant="secondary" size="sm" icon={<Upload className="h-3.5 w-3.5" />} loading={restoreBusy} onClick={chooseRestoreFile}>恢复备份</Button>
+            </div>
+          </Card>
+
+          <Card>
+            <div className="flex items-center gap-2 border-b border-line/8 pb-3">
               <FolderCog className="h-4 w-4 text-accent" />
               <h3 className="text-sm font-semibold text-ink">使用提示</h3>
             </div>
@@ -340,6 +465,17 @@ export function SettingsPage() {
         pending={restarting}
         onClose={() => { if (!restarting) setConfirmRestart(false); }}
         onConfirm={() => { void restart(); }}
+      />
+
+      <ConfirmDialog
+        open={Boolean(pendingRestore)}
+        title="恢复备份"
+        message="恢复会覆盖当前设置和全部订阅，并立即应用配置。确定继续吗？"
+        confirmText="恢复"
+        danger
+        pending={restoreBusy}
+        onClose={() => { if (!restoreBusy) setPendingRestore(null); }}
+        onConfirm={() => { void restoreBackup(); }}
       />
 
       <ConfirmDialog

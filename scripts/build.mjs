@@ -14,6 +14,7 @@ const GEO_FILES = {
   'geoip.metadb': '2eb4749bec1e1b9c269a7997ae63ee0f673cf4288349c9ee73a4e369d4d2915a',
   'geosite.dat': 'ae35a23f40a8e0486f0ed1723780ba6805a9f917a51ff30441eb2c41f688244c',
   'Model.bin': '23633022a815fb34e510befe1c176ba50af3ced48f08b172454f4cd6b8327788',
+  'ASN.mmdb': 'ba7c4964c71b51d28dc23eefd5e4376801bf90472d26f766648aae003af9388e',
 };
 const CORE_FILES = {
   x86: {

@@ -5,7 +5,7 @@ const { ControllerClient } = require('./controller');
 const { AppError } = require('./errors');
 const { findFreePort, randomSecret, sleep } = require('./util');
 
-const START_TIMEOUT_MS = 20000;
+const START_TIMEOUT_MS = 60000;
 
 class CoreManager extends EventEmitter {
   constructor({ bin, dataDir, logger, prepareConfig }) {

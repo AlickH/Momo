@@ -5,7 +5,7 @@ const { CoreManager } = require('./core');
 const { StatsMonitor } = require('./stats');
 const { ProfileManager, fetchSubscription } = require('./profiles');
 const { SettingsStore } = require('./settings');
-const { buildRuntimeConfig, parseProfile, validateMihomoConfig } = require('./config-builder');
+const { buildRuntimeConfig, parseProfile } = require('./config-builder');
 const { AppError, badRequest, conflict, notFound } = require('./errors');
 const { ensureDir, writeFileAtomic, findFreePort } = require('./util');
 
@@ -18,7 +18,7 @@ class MomoService {
     this.logger = logger;
     this.dataDir = env.dataDir;
     this.coreDir = path.join(this.dataDir, 'core');
-    this.configPath = path.join(this.dataDir, 'config.yaml');
+    this.configPath = path.join(this.coreDir, 'config.yaml');
     this.settings = new SettingsStore(this.dataDir);
     this.profiles = new ProfileManager({ dataDir: this.dataDir, logger });
     this.stats = new StatsMonitor({ logger });
@@ -29,6 +29,8 @@ class MomoService {
       prepareConfig: ({ controllerPort, secret }) =>
         this.writeRuntimeConfig(undefined, { controllerPort, secret }),
     });
+    this.profileUpdateTimer = null;
+    this.profileUpdateRunning = false;
     this.core.on('state', (state) => {
       if (state.state === 'running' && this.core.controller) {
         this.stats.attach({ controller: this.core.controller, pid: this.core.pid });
@@ -46,10 +48,37 @@ class MomoService {
     await this.profiles.init();
     await this.copyGeodata();
     this.logger.info('app', `Momo ${this.env.version} 启动，数据目录 ${this.dataDir}`);
+    this.profileUpdateTimer = setInterval(() => {
+      void this.runScheduledProfileUpdates();
+    }, 10 * 60 * 1000);
+    this.profileUpdateTimer.unref();
+    setTimeout(() => { void this.runScheduledProfileUpdates(); }, 2 * 60 * 1000).unref();
+  }
+
+  async runScheduledProfileUpdates() {
+    if (this.profileUpdateRunning) return;
+    const hours = this.settings.get().subscriptionUpdateHours;
+    if (!hours) return;
+    this.profileUpdateRunning = true;
+    try {
+      const now = Date.now();
+      for (const profile of this.profiles.list()) {
+        if (profile.source !== 'url' || !profile.url) continue;
+        if (now - profile.updatedAt < hours * 3600 * 1000) continue;
+        try {
+          await this.updateProfile(profile.id);
+          this.logger.info('profiles', `定时更新订阅 ${profile.name}`);
+        } catch (error) {
+          this.logger.warn('profiles', `定时更新订阅失败 ${profile.name}：${error.message}`);
+        }
+      }
+    } finally {
+      this.profileUpdateRunning = false;
+    }
   }
 
   async copyGeodata() {
-    const files = ['geoip.metadb', 'geosite.dat', 'Model.bin'];
+    const files = ['geoip.metadb', 'geosite.dat', 'Model.bin', 'ASN.mmdb'];
     for (const name of files) {
       const source = path.join(this.env.geoSourceDir, name);
       const target = path.join(this.coreDir, name);
@@ -91,21 +120,9 @@ class MomoService {
     return this.configPath;
   }
 
-  async buildValidatedConfig(content, { controllerPort, secret }) {
+  async buildConfig(content, { controllerPort, secret }) {
     const parsed = content ? parseProfile(content).config : null;
-    const yaml = buildRuntimeConfig(parsed, this.settings.get(), { controllerPort, secret });
-    const tempPath = path.join(this.dataDir, `.validate-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}.yaml`);
-    await writeFileAtomic(tempPath, yaml, 0o600);
-    try {
-      await validateMihomoConfig({
-        bin: this.env.coreBin,
-        configPath: tempPath,
-        dataDir: this.coreDir,
-      });
-    } finally {
-      await fs.rm(tempPath, { force: true });
-    }
-    return yaml;
+    return buildRuntimeConfig(parsed, this.settings.get(), { controllerPort, secret });
   }
 
   async currentControllerCredentials() {
@@ -184,37 +201,29 @@ class MomoService {
     return this.profiles.list();
   }
 
-  async validateStoredProfile(id) {
-    const content = await this.profiles.readContent(id);
-    const credentials = await this.currentControllerCredentials();
-    await this.buildValidatedConfig(content, credentials);
-  }
-
   async addProfileFromUrl({ name, url }) {
     if (!url || typeof url !== 'string') throw badRequest('请输入订阅地址');
     const profile = await this.profiles.addFromUrl({ name, url });
-    try {
-      await this.validateStoredProfile(profile.id);
-    } catch (error) {
-      await this.profiles.remove(profile.id);
-      throw error;
-    }
     if (!this.profiles.activeId) {
-      await this.activateProfile(profile.id);
+      try {
+        await this.activateProfile(profile.id);
+      } catch (error) {
+        await this.profiles.remove(profile.id);
+        throw error;
+      }
     }
     return profile;
   }
 
   async addProfileFromContent({ name, content }) {
     const profile = await this.profiles.addFromContent({ name, content });
-    try {
-      await this.validateStoredProfile(profile.id);
-    } catch (error) {
-      await this.profiles.remove(profile.id);
-      throw error;
-    }
     if (!this.profiles.activeId) {
-      await this.activateProfile(profile.id);
+      try {
+        await this.activateProfile(profile.id);
+      } catch (error) {
+        await this.profiles.remove(profile.id);
+        throw error;
+      }
     }
     return profile;
   }
@@ -222,7 +231,7 @@ class MomoService {
   async activateProfile(id) {
     const content = await this.profiles.readContent(id);
     const credentials = await this.currentControllerCredentials();
-    const yaml = await this.buildValidatedConfig(content, credentials);
+    const yaml = await this.buildConfig(content, credentials);
     const previousActive = this.profiles.activeId;
     await this.profiles.setActive(id);
     try {
@@ -244,7 +253,7 @@ class MomoService {
     const fetched = await fetchSubscription(item.url);
     const parsed = parseProfile(fetched.content);
     const credentials = await this.currentControllerCredentials();
-    const yaml = await this.buildValidatedConfig(parsed.content, credentials);
+    const yaml = await this.buildConfig(parsed.content, credentials);
     const isActive = this.profiles.activeId === id;
     await this.profiles.replaceContent(id, parsed, fetched.subscription);
     if (isActive) {
@@ -261,7 +270,7 @@ class MomoService {
     const item = this.profiles.get(id);
     if (this.profiles.activeId === id) {
       const credentials = await this.currentControllerCredentials();
-      const yaml = await this.buildValidatedConfig(null, credentials);
+      const yaml = await this.buildConfig(null, credentials);
       await this.profiles.setActive(null);
       await this.applyConfigYaml(yaml);
     }
@@ -269,13 +278,51 @@ class MomoService {
     this.logger.info('profiles', `已删除配置 ${item.name}`);
   }
 
+  async updateAllProfiles() {
+    const results = [];
+    for (const profile of this.profiles.list()) {
+      if (profile.source !== 'url' || !profile.url) continue;
+      try {
+        const updated = await this.updateProfile(profile.id);
+        results.push({ id: profile.id, name: profile.name, ok: true, profile: updated });
+      } catch (error) {
+        results.push({ id: profile.id, name: profile.name, ok: false, error: error.message });
+      }
+    }
+    return { results };
+  }
+
+  async exportBackup() {
+    return {
+      format: 'momo-backup',
+      version: 1,
+      appVersion: this.env.version,
+      exportedAt: new Date().toISOString(),
+      settings: this.settings.get(),
+      profiles: await this.profiles.exportAll(),
+    };
+  }
+
+  async restoreBackup(payload) {
+    if (!payload || payload.format !== 'momo-backup' || !payload.profiles) {
+      throw badRequest('备份文件格式无效');
+    }
+    await this.settings.update(payload.settings || {});
+    await this.profiles.importAll(payload.profiles);
+    const credentials = await this.currentControllerCredentials();
+    await this.writeRuntimeConfig(undefined, credentials);
+    if (this.core.running) await this.core.restart();
+    this.logger.info('app', '已从备份恢复配置');
+    return this.getStatus();
+  }
+
   async getProfileContent(id) {
     return { content: await this.profiles.readContent(id) };
   }
 
   async reloadCore() {
-    const credentials = { controllerPort: this.core.controllerPort, secret: this.core.secret };
-    const yaml = await this.buildValidatedConfig(await this.profiles.activeContent(), credentials);
+    const credentials = await this.currentControllerCredentials();
+    const yaml = await this.buildConfig(await this.profiles.activeContent(), credentials);
     await this.applyConfigYaml(yaml);
     return this.core.snapshot();
   }
@@ -492,6 +539,22 @@ class MomoService {
     return { ok: true };
   }
 
+  async updateAllProviders() {
+    const controller = this.core.controllerOrThrow();
+    const data = await controller.providers();
+    const results = [];
+    for (const [name, item] of Object.entries(data.providers || {})) {
+      if (!item || item.vehicleType === 'Compatible') continue;
+      try {
+        await controller.updateProvider(name);
+        results.push({ name, ok: true });
+      } catch (error) {
+        results.push({ name, ok: false, error: error.message });
+      }
+    }
+    return { results };
+  }
+
   async healthcheckProvider(name) {
     await this.core.controllerOrThrow().healthcheckProvider(name);
     return { ok: true };
@@ -548,6 +611,7 @@ class MomoService {
 
   shutdown() {
     this.stats.detach();
+    if (this.profileUpdateTimer) clearInterval(this.profileUpdateTimer);
   }
 }
 

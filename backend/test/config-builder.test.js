@@ -28,6 +28,9 @@ const SETTINGS = {
   ipv6: false,
   unifiedDelay: true,
   tcpConcurrent: true,
+  subscriptionUpdateHours: 0,
+  dnsPort: 1053,
+  dnsNameserver: '',
 };
 
 test('parseProfile accepts a Clash style profile', () => {
@@ -66,6 +69,14 @@ test('buildRuntimeConfig overrides runtime fields and strips controller UI', () 
   assert.equal(config['allow-lan'], true);
   assert.equal(config.profile['store-selected'], true);
   assert.deepEqual(config.rules, base.rules);
+});
+
+test('buildRuntimeConfig applies configured DNS listen and nameservers', () => {
+  const base = YAML.parse(SAMPLE);
+  base.dns = { enable: true, listen: '0.0.0.0:53', 'enhanced-mode': 'fake-ip' };
+  const config = YAML.parse(buildRuntimeConfig(base, { ...SETTINGS, dnsPort: 1053, dnsNameserver: 'https://doh.pub/dns-query, 223.5.5.5' }, { controllerPort: 19090, secret: 'x' }));
+  assert.equal(config.dns.listen, '0.0.0.0:1053');
+  assert.deepEqual(config.dns.nameserver, ['https://doh.pub/dns-query', '223.5.5.5']);
 });
 
 test('buildRuntimeConfig supplies a minimal direct config when no profile exists', () => {

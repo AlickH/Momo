@@ -1,4 +1,3 @@
-const { spawn } = require('node:child_process');
 const YAML = require('yaml');
 const { AppError, badRequest } = require('./errors');
 const { isPlainObject } = require('./util');
@@ -99,6 +98,15 @@ function buildRuntimeConfig(profile, settings, { controllerPort, secret }) {
     },
   });
 
+  if (isPlainObject(config.dns)) {
+    const dns = { ...config.dns, listen: `0.0.0.0:${settings.dnsPort}` };
+    if (settings.dnsNameserver) {
+      const nameserver = settings.dnsNameserver.split(/[\s,]+/).filter(Boolean);
+      if (nameserver.length) dns.nameserver = nameserver;
+    }
+    config.dns = dns;
+  }
+
   if (!Array.isArray(config.rules) || config.rules.length === 0) {
     config.rules = ['MATCH,DIRECT'];
   }
@@ -112,51 +120,8 @@ function buildRuntimeConfig(profile, settings, { controllerPort, secret }) {
   });
 }
 
-function validateMihomoConfig({ bin, configPath, dataDir, timeoutMs = 30000 }) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(bin, ['-t', '-d', dataDir, '-f', configPath], {
-      stdio: ['ignore', 'pipe', 'pipe'],
-      env: { ...process.env },
-    });
-    let output = '';
-    const append = (chunk) => {
-      output += chunk.toString();
-      if (output.length > 20000) output = output.slice(-20000);
-    };
-    child.stdout.on('data', append);
-    child.stderr.on('data', append);
-    const timer = setTimeout(() => {
-      child.kill('SIGKILL');
-      reject(new AppError('配置校验超时', { status: 400, code: 'config_timeout', details: output }));
-    }, timeoutMs);
-    child.on('error', (error) => {
-      clearTimeout(timer);
-      reject(new AppError(`无法运行 mihomo：${error.message}`, { status: 500, code: 'core_missing' }));
-    });
-    child.on('close', (code) => {
-      clearTimeout(timer);
-      if (code === 0) {
-        resolve(output);
-      } else {
-        const lines = output
-          .split('\n')
-          .map((line) => line.trim())
-          .filter(Boolean)
-          .slice(-8)
-          .join('\n');
-        reject(new AppError(`mihomo 拒绝了该配置${lines ? `：\n${lines}` : ''}`, {
-          status: 400,
-          code: 'invalid_config',
-          details: output,
-        }));
-      }
-    });
-  });
-}
-
 module.exports = {
   parseProfile,
   buildRuntimeConfig,
-  validateMihomoConfig,
   decodeBase64Yaml,
 };

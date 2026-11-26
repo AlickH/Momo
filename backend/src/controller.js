@@ -104,7 +104,7 @@ class ControllerClient {
   }
 
   async reload(path) {
-    return this.request('PUT', '/configs?force=true', { path });
+    return this.request('PUT', '/configs?force=true', { path }, { timeoutMs: 30000 });
   }
 }
 

@@ -176,6 +176,7 @@ export function ProxiesPage() {
   const [testing, setTesting] = useState<string | null>(null);
   const [selecting, setSelecting] = useState<string | null>(null);
   const [providerBusy, setProviderBusy] = useState<string | null>(null);
+  const [updatingAllProviders, setUpdatingAllProviders] = useState(false);
   const [restarting, setRestarting] = useState(false);
 
   const groups = proxies.data?.groups ?? [];
@@ -263,6 +264,21 @@ export function ProxiesPage() {
       toast(error instanceof Error ? error.message : '更新失败', 'error');
     } finally {
       setProviderBusy(null);
+    }
+  };
+
+  const updateAllProviders = async () => {
+    setUpdatingAllProviders(true);
+    try {
+      const result = await api.post<{ results: { name: string; ok: boolean; error?: string }[] }>('providers/update-all', undefined, { timeoutMs: 180000 });
+      await Promise.all([providers.refresh(), proxies.refresh()]);
+      const failed = result.results.filter((item) => !item.ok);
+      if (failed.length) toast(`更新完成，${failed.length} 个提供者失败`, 'error');
+      else toast(`已更新 ${result.results.length} 个代理提供者`, 'success');
+    } catch (error) {
+      toast(error instanceof Error ? error.message : '全部更新失败', 'error');
+    } finally {
+      setUpdatingAllProviders(false);
     }
   };
 
@@ -389,7 +405,10 @@ export function ProxiesPage() {
         <div>
           <div className="mb-2 mt-6 flex items-center justify-between">
             <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">代理提供者</h3>
-            <span className="text-[11px] text-muted/80">{providers.data.providers.length} 个</span>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-muted/80">{providers.data.providers.length} 个</span>
+              <Button variant="ghost" size="sm" className="h-7 px-2 text-[10px]" loading={updatingAllProviders} onClick={() => { void updateAllProviders(); }}>全部更新</Button>
+            </div>
           </div>
           <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
             {providers.data.providers.map((provider) => (

@@ -10,6 +10,9 @@ const DEFAULTS = Object.freeze({
   ipv6: false,
   unifiedDelay: true,
   tcpConcurrent: true,
+  subscriptionUpdateHours: 0,
+  dnsPort: 1053,
+  dnsNameserver: '',
 });
 
 const MODES = new Set(['rule', 'global', 'direct']);
@@ -46,6 +49,24 @@ function validateSettings(input) {
     if (input[key] !== undefined) {
       if (typeof input[key] !== 'boolean') errors.push(`${key} 必须是布尔值`);
       else result[key] = input[key];
+    }
+  }
+  if (input.subscriptionUpdateHours !== undefined) {
+    const hours = Number(input.subscriptionUpdateHours);
+    if (!Number.isInteger(hours) || hours < 0 || hours > 168) errors.push('订阅更新间隔必须在 0 到 168 小时之间');
+    else result.subscriptionUpdateHours = hours;
+  }
+  if (input.dnsPort !== undefined) {
+    const port = Number(input.dnsPort);
+    if (!Number.isInteger(port) || port < 1024 || port > 65535) errors.push('DNS 端口必须是 1024 到 65535 之间的整数');
+    else result.dnsPort = port;
+  }
+  if (input.dnsNameserver !== undefined) {
+    if (typeof input.dnsNameserver !== 'string') errors.push('DNS 服务器必须是字符串');
+    else {
+      const nameserver = input.dnsNameserver.trim();
+      if (nameserver.length > 1024) errors.push('DNS 服务器列表过长');
+      else result.dnsNameserver = nameserver;
     }
   }
 
