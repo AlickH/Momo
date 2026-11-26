@@ -108,7 +108,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const meReady = Boolean(me) || denied;
 
   const statusPoll = usePolling<Status>(() => api.get('status'), 5000, { enabled: meReady });
-  const trafficPoll = usePolling<Traffic>(() => api.get('traffic'), 2000, { enabled: meReady });
+  const trafficPoll = usePolling<Traffic>(() => api.get('traffic'), 1000, { enabled: meReady });
 
   const refreshStatus = useCallback(async () => statusPoll.refresh(), [statusPoll]);
   const refreshTraffic = useCallback(async () => trafficPoll.refresh(), [trafficPoll]);
