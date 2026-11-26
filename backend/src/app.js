@@ -166,6 +166,7 @@ function createApp({ env, service, logger }) {
     res.json(await service.updateAllRuleProviders());
   }));
   api.get('/smart/weights', asyncRoute(async (req, res) => res.json(await service.getSmartWeights())));
+  api.post('/telegram/test', asyncRoute(async (req, res) => res.json(await service.testTelegram())));
 
   api.get('/profiles', asyncRoute(async (req, res) => res.json({ profiles: await service.listProfiles() })));
   api.post('/profiles', asyncRoute(async (req, res) => {

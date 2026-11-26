@@ -24,6 +24,10 @@ const DEFAULTS = Object.freeze({
   externalController: false,
   externalControllerPort: 9090,
   externalControllerSecret: '',
+  telegramEnabled: false,
+  telegramToken: '',
+  telegramChatId: '',
+  telegramNotify: true,
 });
 
 const TUN_STACKS = new Set(['gvisor', 'system', 'mixed']);
@@ -105,6 +109,22 @@ function validateSettings(input) {
       if (typeof input[key] !== 'boolean') errors.push(`${key} 必须是布尔值`);
       else result[key] = input[key];
     }
+  }
+  if (input.telegramEnabled !== undefined) {
+    if (typeof input.telegramEnabled !== 'boolean') errors.push('telegramEnabled 必须是布尔值');
+    else result.telegramEnabled = input.telegramEnabled;
+  }
+  if (input.telegramNotify !== undefined) {
+    if (typeof input.telegramNotify !== 'boolean') errors.push('telegramNotify 必须是布尔值');
+    else result.telegramNotify = input.telegramNotify;
+  }
+  if (input.telegramToken !== undefined) {
+    if (typeof input.telegramToken !== 'string' || input.telegramToken.trim().length > 200) errors.push('Telegram Token 无效');
+    else result.telegramToken = input.telegramToken.trim();
+  }
+  if (input.telegramChatId !== undefined) {
+    if (typeof input.telegramChatId !== 'string' || input.telegramChatId.trim().length > 64) errors.push('Telegram Chat ID 无效');
+    else result.telegramChatId = input.telegramChatId.trim();
   }
   if (input.externalController !== undefined) {
     if (typeof input.externalController !== 'boolean') errors.push('externalController 必须是布尔值');

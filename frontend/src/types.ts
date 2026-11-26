@@ -34,6 +34,10 @@ export interface Settings {
   externalController: boolean;
   externalControllerPort: number;
   externalControllerSecret: string;
+  telegramEnabled: boolean;
+  telegramToken: string;
+  telegramChatId: string;
+  telegramNotify: boolean;
 }
 
 export interface SubscriptionInfo {

@@ -24,6 +24,10 @@ test('validateSettings applies defaults and rejects invalid values', () => {
     externalController: false,
     externalControllerPort: 9090,
     externalControllerSecret: '',
+    telegramEnabled: false,
+    telegramToken: '',
+    telegramChatId: '',
+    telegramNotify: true,
   });
   assert.equal(validateSettings({ mixedPort: 1080 }).mixedPort, 1080);
   assert.throws(() => validateSettings({ mixedPort: 80 }), /端口/);

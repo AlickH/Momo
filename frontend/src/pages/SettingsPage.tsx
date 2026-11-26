@@ -24,6 +24,7 @@ import {
   Network,
   Zap,
   Server,
+  Send,
 } from 'lucide-react';
 import { useApp, type ThemeMode } from '../context/AppContext';
 import { api } from '../lib/api';
@@ -67,6 +68,7 @@ export function SettingsPage() {
   const [confirmRestart, setConfirmRestart] = useState(false);
   const [confirmStop, setConfirmStop] = useState(false);
   const [backupBusy, setBackupBusy] = useState(false);
+  const [telegramTesting, setTelegramTesting] = useState(false);
   const [restoreBusy, setRestoreBusy] = useState(false);
   const [pendingRestore, setPendingRestore] = useState<Record<string, unknown> | null>(null);
 
@@ -252,6 +254,64 @@ export function SettingsPage() {
               <span className="truncate">客户端代理地址</span>
               <span className="mono truncate text-ink/80">{clientAddress}</span>
               <CopyButton text={clientAddress} label="复制" />
+            </div>
+          </Card>
+
+          <Card>
+            <div className="flex items-center gap-2 border-b border-line/8 pb-3">
+              <Send className="h-4 w-4 text-accent" />
+              <h3 className="text-sm font-semibold text-ink">Telegram Bot</h3>
+            </div>
+            <div className="pt-1">
+              <SettingRow title="启用 Bot" description="通过 Telegram 查看状态、启停内核、更新订阅。需要 Bot Token 和 Chat ID。">
+                <Switch
+                  checked={form.telegramEnabled}
+                  onChange={(value) => setForm((prev) => ({ ...prev, telegramEnabled: value }))}
+                  label="启用 Telegram Bot"
+                />
+              </SettingRow>
+              <SettingRow title="Bot Token" description="从 @BotFather 获取。">
+                <input
+                  type="password"
+                  value={form.telegramToken}
+                  onChange={(event) => setForm((prev) => ({ ...prev, telegramToken: event.target.value }))}
+                  placeholder="123456:ABC..."
+                  className="focus-ring h-9 w-[280px] max-w-full rounded-lg border border-line/10 bg-surface2 px-2.5 text-xs text-ink placeholder:text-muted/50"
+                />
+              </SettingRow>
+              <SettingRow title="Chat ID" description="只接受这个 Chat ID 发来的命令。">
+                <input
+                  value={form.telegramChatId}
+                  onChange={(event) => setForm((prev) => ({ ...prev, telegramChatId: event.target.value }))}
+                  placeholder="例如 123456789"
+                  className="focus-ring h-9 w-[220px] max-w-full rounded-lg border border-line/10 bg-surface2 px-2.5 text-xs text-ink placeholder:text-muted/50"
+                />
+              </SettingRow>
+              <SettingRow title="异常通知" description="内核进入异常状态时发送消息。">
+                <Switch checked={form.telegramNotify} onChange={(value) => setForm((prev) => ({ ...prev, telegramNotify: value }))} label="异常通知" />
+              </SettingRow>
+              <div className="mt-2 flex items-center gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  icon={<Send className="h-3.5 w-3.5" />}
+                  loading={telegramTesting}
+                  onClick={async () => {
+                    setTelegramTesting(true);
+                    try {
+                      await api.post('telegram/test', undefined, { timeoutMs: 30000 });
+                      toast('测试消息已发送', 'success');
+                    } catch (error) {
+                      toast(error instanceof Error ? error.message : '发送测试消息失败', 'error');
+                    } finally {
+                      setTelegramTesting(false);
+                    }
+                  }}
+                >
+                  发送测试消息
+                </Button>
+                <span className="text-[10px] text-muted/60">保存后 Bot 才会使用新配置</span>
+              </div>
             </div>
           </Card>
 

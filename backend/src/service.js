@@ -7,6 +7,7 @@ const { promisify } = require('node:util');
 const execFileAsync = promisify(execFile);
 const { CoreManager } = require('./core');
 const { StatsMonitor } = require('./stats');
+const { TelegramBot } = require('./telegram');
 const { TransparentManager } = require('./transparent');
 const { ProfileManager, fetchSubscription } = require('./profiles');
 const { SettingsStore } = require('./settings');
@@ -27,6 +28,7 @@ class MomoService {
     this.settings = new SettingsStore(this.dataDir);
     this.profiles = new ProfileManager({ dataDir: this.dataDir, logger });
     this.stats = new StatsMonitor({ logger });
+    this.telegram = new TelegramBot({ service: this, logger });
     this.transparent = new TransparentManager({ logger });
     this.transparentState = { active: false, error: null };
     this.transparentBusy = false;
@@ -43,6 +45,7 @@ class MomoService {
     this.profileUpdateTimer = null;
     this.profileUpdateRunning = false;
     this.core.on('state', (state) => {
+      this.telegram.notifyCoreState(state);
       if (state.state === 'running' && this.core.controller) {
         this.stats.attach({ controller: this.core.controller });
         void this.applyTransparentRules();
@@ -58,6 +61,7 @@ class MomoService {
     await ensureDir(this.coreDir);
     await ensureDir(path.join(this.dataDir, 'logs'));
     await this.settings.load();
+    this.telegram.configure(this.settings.get());
     await this.profiles.init();
     await this.copyGeodata();
     await this.fixCoreOwnership();
@@ -285,6 +289,7 @@ class MomoService {
   async updateSettings(patch) {
     const before = this.settings.get();
     const next = await this.settings.update(patch);
+    this.telegram.configure(next);
     try {
       await this.core.restart();
       return next;
@@ -763,7 +768,14 @@ class MomoService {
     return { logs: this.logger.list(query), latestId: this.logger.latestId() };
   }
 
+  async testTelegram() {
+    this.telegram.configure(this.settings.get());
+    await this.telegram.send('Momo Telegram Bot 测试消息');
+    return { ok: true };
+  }
+
   async shutdown() {
+    this.telegram.stop();
     this.stats.detach();
     if (this.profileUpdateTimer) clearInterval(this.profileUpdateTimer);
     await this.transparent.clear();
