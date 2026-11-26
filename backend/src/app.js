@@ -2,6 +2,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const express = require('express');
 const { AppError, badRequest } = require('./errors');
+const { issueToken } = require('./traffic-socket');
 
 function asyncRoute(handler) {
   return (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
@@ -102,6 +103,9 @@ function createApp({ env, service, logger }) {
   api.get('/core/configs', asyncRoute(async (req, res) => res.json(await service.getConfigs())));
 
   api.get('/traffic', asyncRoute(async (req, res) => res.json(await service.getTraffic())));
+  api.get('/traffic/ws-token', (req, res) => {
+    res.json({ token: issueToken() });
+  });
   api.get('/traffic/stream', (req, res) => {
     res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
     res.setHeader('Cache-Control', 'no-cache, no-transform');

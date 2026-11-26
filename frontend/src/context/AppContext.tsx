@@ -115,20 +115,60 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setTraffic(null);
       return;
     }
-    const controller = new AbortController();
+    let stopped = false;
+    let socket: WebSocket | null = null;
     let retry: ReturnType<typeof setTimeout> | undefined;
+    let fallback: AbortController | null = null;
+    let watchdog: ReturnType<typeof setTimeout> | undefined;
+
+    const startFallback = async () => {
+      if (stopped || fallback) return;
+      fallback = new AbortController();
+      while (!stopped) {
+        try {
+          await api.stream<Traffic>('traffic/stream', setTraffic, fallback.signal);
+        } catch {
+          if (stopped || fallback.signal.aborted) return;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+    };
+
     const connect = async () => {
       try {
-        await api.stream<Traffic>('traffic/stream', setTraffic, controller.signal);
+        const { token } = await api.get<{ token: string }>('traffic/ws-token');
+        if (stopped) return;
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        socket = new WebSocket(`${protocol}//${window.location.host}${import.meta.env.BASE_URL}api/traffic/ws?token=${token}`);
+        let received = false;
+        watchdog = setTimeout(() => {
+          if (!received) {
+            socket?.close();
+            void startFallback();
+          }
+        }, 5000);
+        socket.onmessage = (event) => {
+          received = true;
+          if (watchdog) clearTimeout(watchdog);
+          setTraffic(JSON.parse(event.data) as Traffic);
+        };
+        socket.onclose = () => {
+          if (watchdog) clearTimeout(watchdog);
+          if (!stopped && !fallback) retry = setTimeout(connect, 1000);
+        };
+        socket.onerror = () => socket?.close();
       } catch {
-        if (controller.signal.aborted) return;
+        if (!stopped && !fallback) retry = setTimeout(connect, 1000);
       }
-      if (!controller.signal.aborted) retry = setTimeout(connect, 1000);
     };
+
     void connect();
     return () => {
-      controller.abort();
+      stopped = true;
       if (retry) clearTimeout(retry);
+      if (watchdog) clearTimeout(watchdog);
+      socket?.close();
+      fallback?.abort();
     };
   }, [meReady]);
 

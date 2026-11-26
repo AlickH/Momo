@@ -4,6 +4,7 @@ const { resolveEnv } = require('./env');
 const { Logger } = require('./logger');
 const { MomoService } = require('./service');
 const { createApp } = require('./app');
+const { attachTrafficSocket } = require('./traffic-socket');
 
 async function main() {
   const env = resolveEnv();
@@ -41,6 +42,7 @@ async function main() {
     logger.info('app', `开发服务已监听 http://${env.host}:${env.port}${env.gatewayPrefix}`);
   }
 
+  attachTrafficSocket(server, { service, logger });
   service.startCore();
 
   let closing = false;
