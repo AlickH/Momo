@@ -1,0 +1,17 @@
+{
+  "name": "momo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Mihomo proxy app for fnOS",
+  "scripts": {
+    "install:all": "npm --prefix backend install && npm --prefix frontend install",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "build:frontend": "npm --prefix frontend run build",
+    "build": "node scripts/build.mjs",
+    "fetch:core": "node scripts/fetch-core.mjs",
+    "build:fpk": "node scripts/build.mjs",
+    "test": "npm --prefix backend test",
+    "icons": "python3 scripts/make-icons.py"
+  }
+}

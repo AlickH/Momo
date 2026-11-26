@@ -1,0 +1,5 @@
+#!/bin/bash
+
+mkdir -p "${TRIM_PKGVAR}/logs"
+echo "$(date '+%Y-%m-%d %H:%M:%S') - Momo installed" >> "${TRIM_PKGVAR}/logs/server.out"
+exit 0

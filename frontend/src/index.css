@@ -1,0 +1,226 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root[data-theme='dark'] {
+  --bg: 11 11 11;
+  --surface: 28 28 28;
+  --surface-2: 35 35 35;
+  --surface-3: 42 42 42;
+  --line: 255 255 255;
+  --ink: 230 230 230;
+  --muted: 166 166 166;
+  --accent: 22 119 255;
+  --accent-2: 64 150 255;
+  --danger: 255 77 79;
+  --warning: 250 173 20;
+  --info: 22 119 255;
+  --success: 73 170 25;
+  --shadow: 0 0 0;
+  --grid: 255 255 255;
+  --chart-up: 22 119 255;
+  --chart-down: 82 196 26;
+  --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  color-scheme: dark;
+}
+
+:root[data-theme='light'] {
+  --bg: 242 242 242;
+  --surface: 255 255 255;
+  --surface-2: 250 250 250;
+  --surface-3: 245 245 245;
+  --line: 40 40 40;
+  --ink: 31 31 31;
+  --muted: 89 89 89;
+  --accent: 22 119 255;
+  --accent-2: 64 150 255;
+  --danger: 255 77 79;
+  --warning: 212 136 6;
+  --info: 22 119 255;
+  --success: 82 196 26;
+  --shadow: 0 0 0;
+  --grid: 0 0 0;
+  --chart-up: 22 119 255;
+  --chart-down: 73 170 25;
+  --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  color-scheme: light;
+}
+
+* {
+  border-color: rgb(var(--line) / 0.08);
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+html {
+  background: rgb(var(--bg));
+}
+
+body {
+  margin: 0;
+  background: rgb(var(--bg));
+  color: rgb(var(--ink));
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+
+::selection {
+  background: rgb(var(--accent) / 0.28);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.app-backdrop {
+  background: rgb(var(--bg));
+}
+
+.card {
+  background: rgb(var(--surface));
+  border: 1px solid rgb(var(--line) / 0.08);
+  border-radius: 12px;
+  box-shadow: var(--card-shadow);
+}
+
+.card-solid {
+  background: rgb(var(--surface));
+  border: 1px solid rgb(var(--line) / 0.08);
+  border-radius: 12px;
+}
+
+.native-window {
+  background: rgb(var(--surface));
+  border: 1px solid rgb(var(--line) / 0.08);
+  border-radius: 14px;
+  box-shadow: var(--card-shadow);
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 38px;
+  padding: 0 10px;
+  border-radius: 8px;
+  color: rgb(var(--muted));
+  font-size: 14px;
+  font-weight: 400;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.nav-item:hover {
+  background: rgb(var(--line) / 0.06);
+  color: rgb(var(--ink));
+}
+
+.nav-item-active,
+.nav-item-active:hover {
+  background: rgb(var(--line) / 0.14);
+  color: rgb(var(--ink));
+}
+
+.hairline {
+  border-color: rgb(var(--line) / 0.08);
+}
+
+.focus-ring:focus-visible {
+  outline: 2px solid rgb(var(--accent) / 0.65);
+  outline-offset: 2px;
+}
+
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--line) / 0.16) transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgb(var(--line) / 0.16);
+  border-radius: 999px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--line) / 0.26);
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.text-balance {
+  text-wrap: balance;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+.mono {
+  font-family: 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace;
+}
+
+.shimmer {
+  background: linear-gradient(90deg, rgb(var(--surface-2)) 0%, rgb(var(--surface-3)) 50%, rgb(var(--surface-2)) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.log-line {
+  display: grid;
+  grid-template-columns: 76px 58px 44px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+
+@media (max-width: 768px) {
+  .log-line {
+    grid-template-columns: 62px 46px minmax(0, 1fr);
+  }
+  .log-line .log-source {
+    display: none;
+  }
+}
+
+.prose-pre {
+  white-space: pre;
+  tab-size: 2;
+  line-height: 1.65;
+}
+
+input[type='search']::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+}
+

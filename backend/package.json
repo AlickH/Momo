@@ -1,0 +1,16 @@
+{
+  "name": "momo-backend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "APP_ENV=dev ALLOW_NO_AUTH=1 GATEWAY_PREFIX=/app/momo PORT=5001 node src/index.js",
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "yaml": "^2.8.1"
+  }
+}

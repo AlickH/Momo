@@ -1,0 +1,15 @@
+#!/bin/bash
+
+rm -f "${TRIM_APPDEST}/app.sock"
+
+if [ "${remove_data:-false}" = "true" ] || [ "${remove_data:-0}" = "1" ]; then
+  case "${TRIM_PKGVAR}" in
+    /vol*/@appdata/*|/var/apps/*/var)
+      rm -rf -- "${TRIM_PKGVAR}"
+      ;;
+    *)
+      echo "Refusing to remove unexpected data path: ${TRIM_PKGVAR}" >&2
+      ;;
+  esac
+fi
+exit 0

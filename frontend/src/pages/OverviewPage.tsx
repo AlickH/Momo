@@ -1,0 +1,305 @@
+import { useMemo } from 'react';
+import { Link } from 'react-router-dom';
+import {
+  ArrowDownToLine,
+  ArrowRight,
+  ArrowUpFromLine,
+  Cable,
+  Cpu,
+  Layers,
+  ListFilter,
+  Radio,
+  ServerCog,
+  ShieldCheck,
+  Timer,
+  Waypoints,
+} from 'lucide-react';
+import { useApp } from '../context/AppContext';
+import { usePolling } from '../hooks/usePolling';
+import { useNow } from '../hooks/useNow';
+import { api } from '../lib/api';
+import { formatBytes, formatDate, formatExpiry, formatNumber, formatRate, formatUptime, percent, timeAgo } from '../lib/format';
+import { TrafficChart } from '../components/TrafficChart';
+import { Badge, Button, Card, ProgressBar, Skeleton, StatusDot } from '../components/ui';
+import type { LogEntry, ProxiesData } from '../types';
+
+const stateLabel: Record<string, string> = {
+  running: '运行中',
+  starting: '启动中',
+  restarting: '重启中',
+  stopping: '停止中',
+  stopped: '已停止',
+  error: '异常',
+};
+
+function StatCard({
+  icon,
+  label,
+  value,
+  sub,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  sub?: string;
+}) {
+  return (
+    <div className="card p-4">
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] uppercase tracking-[0.15em] text-muted">{label}</span>
+        <span className="text-muted/70">{icon}</span>
+      </div>
+      <div className="mt-2 text-[22px] font-semibold leading-none tracking-tight text-ink tabular">{value}</div>
+      {sub ? <div className="mt-1.5 text-[11px] text-muted/70">{sub}</div> : null}
+    </div>
+  );
+}
+
+function CoreRing({ state, version }: { state: string; version: string | null }) {
+  const active = state === 'running';
+  const tone = active ? 'rgb(var(--success))' : state === 'error' ? 'rgb(var(--danger))' : 'rgb(var(--warning))';
+  return (
+    <div className="relative mx-auto h-[132px] w-[132px]">
+      <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90">
+        <circle cx="60" cy="60" r="52" fill="none" stroke="rgb(var(--line))" strokeOpacity="0.08" strokeWidth="6" />
+        <circle
+          cx="60"
+          cy="60"
+          r="52"
+          fill="none"
+          stroke={tone}
+          strokeWidth="6"
+          strokeLinecap="round"
+          strokeDasharray="326.7"
+          strokeDashoffset={active ? 0 : 70}
+          className="transition-all duration-700"
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <StatusDot tone={active ? 'success' : state === 'error' ? 'danger' : 'warning'} pulse={active || state === 'starting'} />
+        <span className="mt-1.5 text-sm font-semibold text-ink">{stateLabel[state] ?? state}</span>
+        <span className="mt-0.5 mono text-[10px] text-muted">{version ?? 'mihomo'}</span>
+      </div>
+    </div>
+  );
+}
+
+export function OverviewPage() {
+  const { status, traffic, refreshStatus } = useApp();
+  const now = useNow(1000);
+  const proxies = usePolling<ProxiesData>(() => api.get('proxies'), 5000);
+  const logs = usePolling<{ logs: LogEntry[] }>(() => api.get('logs?since=0&limit=6'), 8000);
+  const core = status!.core;
+  const settings = status!.settings;
+  const profile = status!.activeProfile;
+
+  const subscription = useMemo(() => {
+    if (!profile?.subscription) return null;
+    const used = profile.subscription.upload + profile.subscription.download;
+    const total = profile.subscription.total;
+    const pct = percent(used, total);
+    const expiry = formatExpiry(profile.subscription.expire);
+    return { used, total, pct, expiry };
+  }, [profile]);
+
+  const groups = proxies.data?.groups ?? [];
+  const recentLogs = (logs.data?.logs ?? []).filter((entry) => entry.source === 'core').slice(-6);
+  const activeState = core.state;
+  const running = activeState === 'running';
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.62fr)_minmax(320px,1fr)]">
+        <div className="space-y-4">
+          <Card className="overflow-hidden !p-0">
+            <div className="flex flex-wrap items-start justify-between gap-4 px-5 pt-5">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Radio className="h-3.5 w-3.5 text-accent" />
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">实时流量</span>
+                </div>
+                <div className="mt-3 flex flex-wrap items-end gap-x-8 gap-y-3">
+                  <div>
+                    <div className="flex items-center gap-1.5 text-[11px] text-muted">
+                      <span className="h-1.5 w-1.5 rounded-full bg-[rgb(var(--chart-up))]" />
+                      上传速度
+                    </div>
+                    <div className="mt-1 text-[28px] font-semibold leading-none tracking-tight text-ink tabular">{formatRate(traffic?.up ?? 0)}</div>
+                    <div className="mt-1.5 text-[11px] text-muted/70">累计 {formatBytes(traffic?.upTotal ?? 0)}</div>
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5 text-[11px] text-muted">
+                      <span className="h-1.5 w-1.5 rounded-full bg-[rgb(var(--chart-down))]" />
+                      下载速度
+                    </div>
+                    <div className="mt-1 text-[28px] font-semibold leading-none tracking-tight text-ink tabular">{formatRate(traffic?.down ?? 0)}</div>
+                    <div className="mt-1.5 text-[11px] text-muted/70">累计 {formatBytes(traffic?.downTotal ?? 0)}</div>
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 text-[11px] text-muted">
+                <span className="flex items-center gap-1.5"><span className="h-1.5 w-5 rounded-full bg-[rgb(var(--chart-up))]" />上传</span>
+                <span className="flex items-center gap-1.5"><span className="h-1.5 w-5 rounded-full bg-[rgb(var(--chart-down))]" />下载</span>
+              </div>
+            </div>
+            <div className="mt-2 px-2 pb-3">
+              <TrafficChart history={traffic?.history ?? []} />
+            </div>
+          </Card>
+
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <StatCard icon={<ArrowDownToLine className="h-4 w-4" />} label="下载总量" value={formatBytes(traffic?.downTotal ?? 0)} sub="本次内核运行" />
+            <StatCard icon={<ArrowUpFromLine className="h-4 w-4" />} label="上传总量" value={formatBytes(traffic?.upTotal ?? 0)} sub="本次内核运行" />
+            <StatCard icon={<Cable className="h-4 w-4" />} label="活动连接" value={formatNumber(status!.connections)} sub={running ? '实时连接数' : '内核未运行'} />
+            <StatCard icon={<Cpu className="h-4 w-4" />} label="内存占用" value={formatBytes(traffic?.memory ?? 0)} sub="mihomo 进程" />
+          </div>
+
+          <Card>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold text-ink">策略组</h3>
+                <p className="mt-0.5 text-[12px] text-muted">当前节点选择与自动策略</p>
+              </div>
+              <Link to="/proxies" className="flex items-center gap-1 text-[12px] font-medium text-accent hover:underline">
+                全部代理 <ArrowRight className="h-3 w-3" />
+              </Link>
+            </div>
+            <div className="mt-4 grid gap-2.5 sm:grid-cols-2">
+              {proxies.loading && groups.length === 0 ? (
+                <><Skeleton className="h-[86px]" /><Skeleton className="h-[86px]" /></>
+              ) : groups.length === 0 ? (
+                <div className="col-span-full rounded-xl border border-dashed border-line/10 px-4 py-6 text-center text-[12px] text-muted">
+                  当前配置没有策略组，添加订阅后这里会显示节点分组。
+                </div>
+              ) : groups.slice(0, 4).map((group) => (
+                <Link key={group.name} to="/proxies" className="group rounded-xl border border-line/8 bg-surface2/45 px-3.5 py-3 transition hover:border-accent/20 hover:bg-surface2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="flex min-w-0 items-center gap-2">
+                      <Waypoints className="h-3.5 w-3.5 shrink-0 text-muted" />
+                      <span className="truncate text-xs font-medium text-ink">{group.name}</span>
+                    </span>
+                    <Badge tone={group.type === 'Selector' ? 'accent' : group.type === 'URLTest' ? 'info' : 'neutral'}>{group.type}</Badge>
+                  </div>
+                  <div className="mt-2.5 flex items-center justify-between gap-2">
+                    <span className="truncate text-[12px] text-muted">{group.now || '未选择'}</span>
+                    <span className="shrink-0 text-[11px] text-muted/60">{group.all.length} 节点</span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </Card>
+        </div>
+
+        <div className="space-y-4">
+          <Card>
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="text-sm font-semibold text-ink">内核状态</h3>
+                <p className="mt-0.5 text-[12px] text-muted">mihomo 内核</p>
+              </div>
+              <Link to="/settings" className="rounded-lg p-1.5 text-muted transition hover:bg-surface2 hover:text-ink" aria-label="内核设置">
+                <ServerCog className="h-4 w-4" />
+              </Link>
+            </div>
+            <div className="mt-4"><CoreRing state={activeState} version={core.version} /></div>
+            {core.lastError ? (
+              <div className="mt-3 rounded-lg border border-danger/15 bg-danger/6 px-3 py-2 text-[11px] leading-relaxed text-danger/90">
+                <p className="line-clamp-3 break-all">{core.lastError}</p>
+                <button type="button" onClick={() => { void refreshStatus(); }} className="mt-1.5 font-medium text-danger hover:underline">刷新状态</button>
+              </div>
+            ) : null}
+            <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-line/8 pt-3">
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.12em] text-muted/60">运行时长</div>
+                <div className="mt-1 text-xs text-ink">{formatUptime(core.startedAt, now)}</div>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.12em] text-muted/60">代理端口</div>
+                <div className="mt-1 text-xs text-ink tabular">{settings.mixedPort}</div>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.12em] text-muted/60">PID</div>
+                <div className="mt-1 text-xs text-ink tabular">{core.pid ?? '—'}</div>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.12em] text-muted/60">局域网</div>
+                <div className="mt-1 text-xs text-ink">{settings.allowLan ? '已允许' : '已关闭'}</div>
+              </div>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line/8 pt-3 text-[11px] text-muted">
+              <span className="flex items-center gap-1"><ListFilter className="h-3 w-3" /> {settings.mode === 'rule' ? '规则模式' : settings.mode === 'global' ? '全局模式' : '直连模式'}</span>
+              <span className="text-muted/30">·</span>
+              <span className="flex items-center gap-1"><ShieldCheck className="h-3 w-3" /> 仅管理员可管理</span>
+            </div>
+          </Card>
+
+          <Card>
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="text-sm font-semibold text-ink">当前配置</h3>
+                <p className="mt-0.5 text-[12px] text-muted">当前使用</p>
+              </div>
+              <Link to="/profiles" className="flex items-center gap-1 text-[12px] text-accent hover:underline">管理 <ArrowRight className="h-3 w-3" /></Link>
+            </div>
+            {profile ? (
+              <div className="mt-4">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-accent/15 bg-accent/8 text-accent"><Layers className="h-4 w-4" /></span>
+                  <div className="min-w-0">
+                    <div className="truncate text-[14px] font-medium text-ink">{profile.name}</div>
+                    <div className="text-[11px] text-muted">{profile.source === 'url' ? '订阅链接' : '本地配置'} · {timeAgo(profile.updatedAt)}更新</div>
+                  </div>
+                </div>
+                {subscription ? (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-muted">流量使用</span>
+                      <span className="text-ink/90">{formatBytes(subscription.used)} / {formatBytes(subscription.total)}</span>
+                    </div>
+                    <ProgressBar value={subscription.pct} tone={subscription.pct > 90 ? 'danger' : subscription.pct > 70 ? 'warning' : 'accent'} className="mt-1.5" />
+                    <div className="mt-1.5 flex items-center justify-between text-[11px] text-muted/70">
+                      <span>{subscription.pct.toFixed(1)}%</span>
+                      <span className={subscription.expiry.expired ? 'text-danger' : ''}>{subscription.expiry.text}</span>
+                    </div>
+                  </div>
+                ) : null}
+                <div className="mt-4 flex items-center gap-4 border-t border-line/8 pt-3 text-[11px] text-muted">
+                  <span className="flex items-center gap-1"><Waypoints className="h-3 w-3" /> {profile.proxyCount} 代理</span>
+                  <span className="flex items-center gap-1"><ListFilter className="h-3 w-3" /> {proxies.data?.groups.length ?? 0} 策略组</span>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-4 rounded-xl border border-dashed border-line/12 px-4 py-6 text-center">
+                <p className="text-xs text-muted">还没有启用任何配置</p>
+                <Link to="/profiles" className="mt-3 inline-flex"><Button variant="primary" size="sm">添加订阅</Button></Link>
+              </div>
+            )}
+          </Card>
+
+          <Card>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-ink">最近日志</h3>
+              <Link to="/logs" className="text-[12px] text-accent hover:underline">查看全部</Link>
+            </div>
+            <div className="mt-3 space-y-2">
+              {recentLogs.length === 0 ? (
+                <p className="py-4 text-center text-[12px] text-muted">暂无日志</p>
+              ) : recentLogs.slice(-6).map((entry) => (
+                <div key={entry.id} className="flex items-start gap-2 text-[11px]">
+                  <span className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${entry.level === 'error' ? 'bg-danger' : entry.level === 'warning' ? 'bg-warning' : 'bg-accent/60'}`} />
+                  <span className="mono shrink-0 text-muted/60">{new Date(entry.time).toLocaleTimeString('zh-CN', { hour12: false })}</span>
+                  <span className="line-clamp-1 min-w-0 text-muted">{entry.message}</span>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-[11px] text-muted/50">
+        <span className="flex items-center gap-1.5"><Timer className="h-3 w-3" /> 数据每 2 秒刷新 · 内核 {core.version ?? '—'}</span>
+        <span>最近更新 {formatDate(proxies.lastUpdated ?? Date.now())}</span>
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,19 @@
+[
+  {
+    "stepTitle": "Momo 代理",
+    "items": [
+      {
+        "type": "tips",
+        "helpText": "Momo 会以 mihomo 内核在后台运行，通过飞牛统一网关提供管理面板。默认仅管理员可打开面板。"
+      },
+      {
+        "type": "tips",
+        "helpText": "安装后请打开应用，添加 Clash / mihomo 订阅并启用。默认混合代理端口为 7890，可在设置中修改。"
+      },
+      {
+        "type": "tips",
+        "helpText": "本应用使用 HTTP/SOCKS5 混合代理模式，不创建 TUN 虚拟网卡；局域网设备需要手动填写 NAS 地址和代理端口。"
+      }
+    ]
+  }
+]

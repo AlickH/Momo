@@ -1,0 +1,8 @@
+#!/bin/bash
+
+APP_ROOT="$(dirname "${TRIM_APPDEST}")"
+if [ -x "${APP_ROOT}/cmd/main" ]; then
+  "${APP_ROOT}/cmd/main" stop >/dev/null 2>&1 || true
+  "${APP_ROOT}/cmd/main" start >/dev/null 2>&1 || true
+fi
+exit 0

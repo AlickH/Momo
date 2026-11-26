@@ -1,0 +1,14 @@
+[
+  {
+    "stepTitle": "卸载 Momo",
+    "items": [
+      {
+        "type": "switch",
+        "field": "remove_data",
+        "label": "同时删除订阅、日志和配置",
+        "helpText": "关闭时保留应用数据目录，重新安装后可以继续使用。",
+        "initValue": "false"
+      }
+    ]
+  }
+]

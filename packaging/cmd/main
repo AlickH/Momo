@@ -1,0 +1,146 @@
+#!/bin/bash
+
+export PATH=/var/apps/nodejs_v22/target/bin:$PATH
+export NODE_ENV=production
+
+APP_DIR="${TRIM_APPDEST}/server"
+DATA_DIR="${TRIM_PKGVAR}"
+LOG_DIR="${DATA_DIR}/logs"
+LOG_FILE="${LOG_DIR}/server.out"
+PID_FILE="${DATA_DIR}/app.pid"
+SOCKET_PATH="${TRIM_APPDEST}/app.sock"
+CORE_BIN="${TRIM_APPDEST}/core/mihomo"
+GATEWAY_PREFIX="/app/momo"
+
+mkdir -p "${LOG_DIR}" "${DATA_DIR}/core" "${DATA_DIR}/profiles"
+
+log_msg() {
+  echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$LOG_FILE"
+}
+
+error_msg() {
+  echo "$1" > "${TRIM_TEMP_LOGFILE:-/dev/null}"
+  log_msg "ERROR: $1"
+}
+
+check_process() {
+  local pid="$1"
+  [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null
+}
+
+read_pid() {
+  if [ -r "$PID_FILE" ]; then
+    head -n 1 "$PID_FILE" | tr -d '[:space:]'
+  fi
+}
+
+status_app() {
+  local pid
+  pid="$(read_pid)"
+  if check_process "$pid"; then
+    return 0
+  fi
+  rm -f "$PID_FILE"
+  return 1
+}
+
+start_app() {
+  if status_app; then
+    return 0
+  fi
+
+  if [ ! -x "$CORE_BIN" ]; then
+    error_msg "mihomo 内核文件缺失或不可执行：$CORE_BIN"
+    return 1
+  fi
+  if ! command -v node >/dev/null 2>&1; then
+    error_msg "未找到 Node.js 运行时 nodejs_v22"
+    return 1
+  fi
+
+  rm -f "$SOCKET_PATH"
+  pkill -f "${CORE_BIN} -d ${DATA_DIR}/core" 2>/dev/null || true
+
+  log_msg "Starting Momo..."
+  cd "$APP_DIR" || { error_msg "应用目录不存在：$APP_DIR"; return 1; }
+
+  HOME="${TRIM_PKGHOME:-$DATA_DIR}" \
+  TRIM_APPDEST="${TRIM_APPDEST}" \
+  TRIM_PKGVAR="${TRIM_PKGVAR}" \
+  TRIM_PKGHOME="${TRIM_PKGHOME:-$DATA_DIR}" \
+  SOCKET_PATH="$SOCKET_PATH" \
+  GATEWAY_PREFIX="$GATEWAY_PREFIX" \
+  WEB_DIR="${TRIM_APPDEST}/web" \
+  MIHOMO_BIN="$CORE_BIN" \
+  nohup node src/index.js >> "$LOG_FILE" 2>&1 &
+  local pid=$!
+  echo "$pid" > "$PID_FILE"
+
+  local count=0
+  while [ "$count" -lt 50 ]; do
+    if ! check_process "$pid"; then
+      error_msg "Momo 启动失败，请查看日志：${LOG_DIR}/app.log"
+      rm -f "$PID_FILE" "$SOCKET_PATH"
+      return 1
+    fi
+    if [ -S "$SOCKET_PATH" ]; then
+      log_msg "Momo started (PID $pid)"
+      return 0
+    fi
+    sleep 0.3
+    count=$((count + 1))
+  done
+
+  error_msg "Momo 启动超时，未创建统一网关 Socket"
+  kill -TERM "$pid" 2>/dev/null || true
+  rm -f "$PID_FILE" "$SOCKET_PATH"
+  return 1
+}
+
+stop_app() {
+  local pid
+  pid="$(read_pid)"
+  if ! check_process "$pid"; then
+    rm -f "$PID_FILE" "$SOCKET_PATH"
+    pkill -f "${CORE_BIN} -d ${DATA_DIR}/core" 2>/dev/null || true
+    return 0
+  fi
+
+  log_msg "Stopping Momo (PID $pid)..."
+  kill -TERM "$pid" 2>/dev/null || true
+
+  local count=0
+  while check_process "$pid" && [ "$count" -lt 50 ]; do
+    sleep 0.3
+    count=$((count + 1))
+  done
+
+  if check_process "$pid"; then
+    log_msg "Momo did not exit in time, sending SIGKILL"
+    kill -KILL "$pid" 2>/dev/null || true
+  fi
+
+  rm -f "$PID_FILE" "$SOCKET_PATH"
+  pkill -f "${CORE_BIN} -d ${DATA_DIR}/core" 2>/dev/null || true
+  log_msg "Momo stopped"
+  return 0
+}
+
+case "$1" in
+  start)
+    start_app
+    ;;
+  stop)
+    stop_app
+    ;;
+  status)
+    if status_app; then
+      exit 0
+    fi
+    exit 3
+    ;;
+  *)
+    echo "Unknown command: $1" > "${TRIM_TEMP_LOGFILE:-/dev/null}"
+    exit 1
+    ;;
+esac

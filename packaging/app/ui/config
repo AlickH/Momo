@@ -1,0 +1,17 @@
+{
+  ".url": {
+    "momo.main": {
+      "title": "Momo",
+      "icon": "images/icon_{0}.png",
+      "type": "iframe",
+      "protocol": "",
+      "gatewayPrefix": "/app/momo",
+      "gatewaySocket": "app.sock",
+      "url": "/app/momo",
+      "allUsers": false,
+      "control": {
+        "accessPerm": "readonly"
+      }
+    }
+  }
+}
