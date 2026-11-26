@@ -15,6 +15,8 @@ const DEFAULTS = Object.freeze({
   dnsNameserver: '',
   proxyMode: 'off',
   redirPort: 7892,
+  testUrl: 'https://www.gstatic.com/generate_204',
+  testTimeout: 5000,
   tunStack: 'gvisor',
   tunAutoRoute: true,
   tunDnsHijack: true,
@@ -72,6 +74,18 @@ function validateSettings(input) {
   if (input.proxyMode !== undefined) {
     if (!PROXY_MODES.has(input.proxyMode)) errors.push('透明代理模式无效');
     else result.proxyMode = input.proxyMode;
+  }
+  if (input.testUrl !== undefined) {
+    if (typeof input.testUrl !== 'string' || !/^https?:\/\//i.test(input.testUrl.trim())) {
+      errors.push('测速地址必须是 HTTP 或 HTTPS URL');
+    } else {
+      result.testUrl = input.testUrl.trim();
+    }
+  }
+  if (input.testTimeout !== undefined) {
+    const timeout = Number(input.testTimeout);
+    if (!Number.isInteger(timeout) || timeout < 1000 || timeout > 10000) errors.push('测速超时必须在 1000 到 10000 毫秒之间');
+    else result.testTimeout = timeout;
   }
   if (input.redirPort !== undefined) {
     const port = Number(input.redirPort);

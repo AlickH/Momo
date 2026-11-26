@@ -118,6 +118,9 @@ function createApp({ env, service, logger }) {
   api.post('/proxies/delay', asyncRoute(async (req, res) => {
     res.json(await service.testDelay(req.body || {}));
   }));
+  api.post('/proxies/group-delay', asyncRoute(async (req, res) => {
+    res.json(await service.testGroupDelay(req.body || {}));
+  }));
 
   api.get('/providers', asyncRoute(async (req, res) => res.json(await service.getProviders())));
   api.post('/providers/update', asyncRoute(async (req, res) => {

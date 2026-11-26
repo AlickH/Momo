@@ -22,6 +22,7 @@ import {
   Upload,
   DatabaseBackup,
   Network,
+  Zap,
 } from 'lucide-react';
 import { useApp, type ThemeMode } from '../context/AppContext';
 import { api } from '../lib/api';
@@ -250,6 +251,34 @@ export function SettingsPage() {
               <span className="truncate">客户端代理地址</span>
               <span className="mono truncate text-ink/80">{clientAddress}</span>
               <CopyButton text={clientAddress} label="复制" />
+            </div>
+          </Card>
+
+          <Card>
+            <div className="flex items-center gap-2 border-b border-line/8 pb-3">
+              <Zap className="h-4 w-4 text-accent" />
+              <h3 className="text-sm font-semibold text-ink">测速</h3>
+            </div>
+            <div className="pt-1">
+              <SettingRow title="测速地址" description="返回 204 的地址。部分节点会拦截 Google，可改成 Cloudflare 或自建地址。">
+                <input
+                  value={form.testUrl}
+                  onChange={(event) => setForm((prev) => ({ ...prev, testUrl: event.target.value }))}
+                  placeholder="https://www.gstatic.com/generate_204"
+                  className="focus-ring h-9 w-[280px] max-w-full rounded-lg border border-line/10 bg-surface2 px-2.5 text-xs text-ink placeholder:text-muted/50"
+                />
+              </SettingRow>
+              <SettingRow title="测速超时" description="单个节点/策略组的测速超时，单位毫秒。">
+                <input
+                  type="number"
+                  min={1000}
+                  max={10000}
+                  step={500}
+                  value={form.testTimeout}
+                  onChange={(event) => setForm((prev) => ({ ...prev, testTimeout: Number(event.target.value) }))}
+                  className="focus-ring h-9 w-24 rounded-lg border border-line/10 bg-surface2 px-2.5 text-right text-sm text-ink tabular"
+                />
+              </SettingRow>
             </div>
           </Card>
 

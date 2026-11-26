@@ -16,6 +16,8 @@ test('validateSettings applies defaults and rejects invalid values', () => {
     dnsNameserver: '',
     proxyMode: 'off',
     redirPort: 7892,
+    testUrl: 'https://www.gstatic.com/generate_204',
+    testTimeout: 5000,
     tunStack: 'gvisor',
     tunAutoRoute: true,
     tunDnsHijack: true,
@@ -33,4 +35,6 @@ test('validateSettings applies defaults and rejects invalid values', () => {
   assert.throws(() => validateSettings({ proxyMode: 'nope' }), /透明代理/);
   assert.throws(() => validateSettings({ tunStack: 'nope' }), /TUN 栈/);
   assert.throws(() => validateSettings({ redirPort: 53 }), /Redir 端口/);
+  assert.equal(validateSettings({ testTimeout: 3000 }).testTimeout, 3000);
+  assert.throws(() => validateSettings({ testUrl: 'ftp://example.com' }), /测速地址/);
 });

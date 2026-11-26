@@ -185,6 +185,8 @@ export function ProxiesPage() {
   const groupNames = new Set(groups.map((group) => group.name));
   const realNodeCount = Object.keys(nodes).filter((name) => !BUILTIN_PROXIES.has(name) && !groupNames.has(name)).length;
   const running = status?.core.state === 'running';
+  const testUrl = status?.settings.testUrl || DEFAULT_TEST_URL;
+  const testTimeout = status?.settings.testTimeout || 5000;
 
   const filteredGroups = useMemo(() => {
     if (!query.trim()) return groups;
@@ -196,41 +198,107 @@ export function ProxiesPage() {
     ));
   }, [groups, query]);
 
-  const visibleNodeNames = useMemo(() => {
-    const names = new Set<string>();
-    const normalized = query.trim().toLowerCase();
-    const groupNames = new Set(groups.map((group) => group.name));
-    for (const group of filteredGroups) {
-      for (const name of group.all) {
-        if (BUILTIN_PROXIES.has(name) || groupNames.has(name)) continue;
-        if (!normalized || group.name.toLowerCase().includes(normalized) || name.toLowerCase().includes(normalized)) names.add(name);
-      }
-    }
-    if (groups.length === 0) for (const node of flat) names.add(node.name);
-    return [...names];
-  }, [filteredGroups, flat, groups, query]);
+  const applyDelays = (map: Record<string, number>) => {
+    setDelays((prev) => ({ ...prev, ...map }));
+  };
 
-  const testNames = async (names: string[], key: string) => {
+  const summarize = (map: Record<string, number>) => {
+    const values = Object.values(map);
+    const ok = values.filter((value) => value > 0).length;
+    return { ok, total: values.length };
+  };
+
+  const testGroup = async (group: ProxyGroup) => {
+    if (!running) return;
+    setTesting(group.name);
+    try {
+      const result = await api.post<{ results: Record<string, number> }>('proxies/group-delay', {
+        group: group.name,
+        url: group.testUrl || testUrl,
+        timeout: testTimeout,
+      }, { timeoutMs: 30000 });
+      applyDelays(result.results);
+      const { ok, total } = summarize(result.results);
+      toast(`${group.name} 测速完成：${ok}/${total} 个节点可用`, ok > 0 ? 'success' : 'info');
+    } catch (error) {
+      toast(error instanceof Error ? error.message : '测速失败', 'error');
+    } finally {
+      setTesting(null);
+    }
+  };
+
+  const testNodes = async (names: string[]) => {
     if (!running || names.length === 0) return;
     const unique = [...new Set(names)];
-    setTesting(key);
     const merged: Record<string, number> = {};
     try {
       for (let index = 0; index < unique.length; index += CHUNK_SIZE) {
-        const chunk = unique.slice(index, index + CHUNK_SIZE);
         const result = await api.post<{ results: Record<string, number> }>('proxies/delay', {
-          names: chunk,
-          url: DEFAULT_TEST_URL,
-          timeout: 5000,
-          force: true,
+          names: unique.slice(index, index + CHUNK_SIZE),
+          url: testUrl,
+          timeout: testTimeout,
         }, { timeoutMs: 60000 });
         Object.assign(merged, result.results);
-        setDelays((prev) => ({ ...prev, ...merged }));
+        applyDelays(merged);
       }
-      const ok = Object.values(merged).filter((value) => value >= 0).length;
-      toast(`测速完成：${ok}/${unique.length} 个节点可用`, ok > 0 ? 'success' : 'info');
+      const { ok, total } = summarize(merged);
+      toast(`测速完成：${ok}/${total} 个节点可用`, ok > 0 ? 'success' : 'info');
     } catch (error) {
       toast(error instanceof Error ? error.message : '测速失败', 'error');
+    }
+  };
+
+  const testNode = async (name: string) => {
+    if (!running) return;
+    setTesting(name);
+    try {
+      const result = await api.post<{ results: Record<string, number> }>('proxies/delay', {
+        names: [name],
+        url: testUrl,
+        timeout: testTimeout,
+      }, { timeoutMs: 60000 });
+      applyDelays(result.results);
+      const delay = result.results[name];
+      toast(delay > 0 ? `${name}：${delay}ms` : `${name}：测速失败`, delay > 0 ? 'success' : 'error');
+    } catch (error) {
+      toast(error instanceof Error ? error.message : '测速失败', 'error');
+    } finally {
+      setTesting(null);
+    }
+  };
+
+  const testAll = async () => {
+    if (!running) return;
+    setTesting('__all__');
+    if (groups.length === 0) {
+      await testNodes(flat.map((node) => node.name));
+      setTesting(null);
+      return;
+    }
+    const targets = filteredGroups.length ? filteredGroups : groups;
+    const merged: Record<string, number> = {};
+    let cursor = 0;
+    let failedGroups = 0;
+    const workers = Array.from({ length: Math.min(3, targets.length) }, async () => {
+      while (cursor < targets.length) {
+        const group = targets[cursor++];
+        try {
+          const result = await api.post<{ results: Record<string, number> }>('proxies/group-delay', {
+            group: group.name,
+            url: group.testUrl || testUrl,
+            timeout: testTimeout,
+          }, { timeoutMs: 30000 });
+          Object.assign(merged, result.results);
+          applyDelays(result.results);
+        } catch {
+          failedGroups += 1;
+        }
+      }
+    });
+    try {
+      await Promise.all(workers);
+      const { ok, total } = summarize(merged);
+      toast(`全部测速完成：${ok}/${total} 个节点可用${failedGroups ? `，${failedGroups} 个策略组失败` : ''}`, ok > 0 ? 'success' : 'info');
     } finally {
       setTesting(null);
     }
@@ -335,8 +403,8 @@ export function ProxiesPage() {
             size="sm"
             icon={<Zap className="h-3.5 w-3.5" />}
             loading={testing === '__all__'}
-            disabled={!running || visibleNodeNames.length === 0}
-            onClick={() => { void testNames(visibleNodeNames, '__all__'); }}
+            disabled={!running || (groups.length === 0 && flat.length === 0)}
+            onClick={() => { void testAll(); }}
           >全部测速</Button>
           <Button
             variant="ghost"
@@ -369,8 +437,8 @@ export function ProxiesPage() {
                 query={query}
                 delays={delays}
                 testing={testing}
-                onTestGroup={(target) => { void testNames(target.all, target.name); }}
-                onTestNode={(name) => { void testNames([name], name); }}
+                onTestGroup={(target) => { void testGroup(target); }}
+                onTestNode={(name) => { void testNode(name); }}
                 onSelect={(target, name) => { void selectNode(target, name); }}
               />
             ))}

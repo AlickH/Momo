@@ -26,6 +26,8 @@ export interface Settings {
   dnsNameserver: string;
   proxyMode: 'off' | 'tun' | 'redir';
   redirPort: number;
+  testUrl: string;
+  testTimeout: number;
   tunStack: 'gvisor' | 'system' | 'mixed';
   tunAutoRoute: boolean;
   tunDnsHijack: boolean;

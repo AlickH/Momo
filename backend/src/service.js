@@ -500,7 +500,36 @@ class MomoService {
     return { ok: true };
   }
 
-  async testDelay({ names, url = DEFAULT_DELAY_URL, timeout = 5000, force = false }) {
+  async testGroupDelay({ group, url = DEFAULT_DELAY_URL, timeout = 5000 }) {
+    if (!group || typeof group !== 'string') throw badRequest('缺少策略组');
+    let target;
+    try {
+      target = new URL(url);
+    } catch {
+      throw badRequest('测速地址无效');
+    }
+    if (!['http:', 'https:'].includes(target.protocol)) throw badRequest('测速地址必须是 HTTP 或 HTTPS');
+    const delayTimeout = Math.min(Math.max(Number(timeout) || 5000, 1000), 10000);
+    const controller = this.core.controllerOrThrow();
+    const proxyData = await controller.proxies();
+    const groupNode = proxyData.proxies?.[group];
+    if (!groupNode || !Array.isArray(groupNode.all)) throw badRequest('策略组不存在');
+    let raw;
+    try {
+      raw = await controller.groupDelay(group, target.toString(), delayTimeout);
+    } catch (error) {
+      throw new AppError(`测速失败：${error.message}`, { status: 502, code: 'group_delay_failed' });
+    }
+    const results = {};
+    const groupLimit = Math.min(delayTimeout, 3000);
+    for (const name of groupNode.all) {
+      const value = Number(raw?.[name]);
+      results[name] = Number.isFinite(value) && value > 0 && value < groupLimit ? value : -1;
+    }
+    return { group, results };
+  }
+
+  async testDelay({ names, url = DEFAULT_DELAY_URL, timeout = 5000 }) {
     if (!Array.isArray(names) || names.length === 0) throw badRequest('请选择要测试的节点');
     if (names.length > 300) throw badRequest('一次最多测试 300 个节点');
     if (!names.every((name) => typeof name === 'string' && name.length > 0)) {
@@ -520,19 +549,28 @@ class MomoService {
       controller.providers().catch(() => ({ providers: {} })),
     ]);
     const proxyKeys = new Set(Object.keys(proxyData.proxies || {}));
-    const providerByNode = new Map();
-    for (const [providerName, provider] of Object.entries(providerData.providers || {})) {
+    const providerNodes = new Set();
+    for (const provider of Object.values(providerData.providers || {})) {
       if (!provider || provider.vehicleType === 'Compatible') continue;
-      const meta = { name: providerName, testUrl: provider.testUrl || '' };
-      for (const proxy of provider.proxies || []) providerByNode.set(proxy.name, meta);
+      for (const proxy of provider.proxies || []) providerNodes.add(proxy.name);
+    }
+    const groupsByNode = new Map();
+    for (const [groupName, groupNode] of Object.entries(proxyData.proxies || {})) {
+      if (!Array.isArray(groupNode?.all)) continue;
+      for (const member of groupNode.all) {
+        if (!groupsByNode.has(member)) groupsByNode.set(member, []);
+        groupsByNode.get(member).push(groupName);
+      }
     }
 
     const results = {};
     const testUrl = target.toString();
     const inlineNames = [];
+    const providerTargets = [];
     for (const name of names) {
       if (proxyKeys.has(name)) inlineNames.push(name);
-      else if (!providerByNode.has(name)) results[name] = -1;
+      else if (providerNodes.has(name)) providerTargets.push(name);
+      else results[name] = -1;
     }
 
     let cursor = 0;
@@ -541,7 +579,8 @@ class MomoService {
         const name = inlineNames[cursor++];
         try {
           const result = await controller.proxyDelay(name, testUrl, delayTimeout);
-          results[name] = Number.isFinite(result?.delay) ? result.delay : -1;
+          const delay = Number(result?.delay);
+          results[name] = Number.isFinite(delay) && delay > 0 && delay < delayTimeout ? delay : -1;
         } catch {
           results[name] = -1;
         }
@@ -549,60 +588,36 @@ class MomoService {
     });
     await Promise.all(workers);
 
-    const providerTargets = names.filter((name) => !proxyKeys.has(name) && providerByNode.has(name));
-    if (providerTargets.length) {
-      const latestEntry = (providers, name) => {
-        const providerMeta = providerByNode.get(name);
-        const node = (providers.providers?.[providerMeta.name]?.proxies || []).find((proxy) => proxy.name === name);
-        return [...(node?.history || [])].reverse().find((entry) => Number.isFinite(entry.delay)) || null;
-      };
-
-      const pending = providerTargets.filter((name) => {
-        const providerMeta = providerByNode.get(name);
-        if (!providerMeta.testUrl) {
-          results[name] = -1;
-          return false;
-        }
-        if (!force) {
-          const entry = latestEntry(providerData, name);
-          const timestamp = entry ? Date.parse(entry.time) : NaN;
-          if (entry && Number.isFinite(timestamp) && timestamp >= Date.now() - 60000) {
-            results[name] = entry.delay > 0 ? entry.delay : -1;
-            return false;
-          }
-        }
-        return true;
-      });
-
-      if (pending.length) {
-        const providersToCheck = new Set(pending.map((name) => providerByNode.get(name).name));
-        const startedAt = Date.now();
-        await Promise.all([...providersToCheck].map((providerName) => (
-          controller.healthcheckProvider(providerName).catch(() => {})
-        )));
-        const deadline = Date.now() + 20000;
-        let latestProviders = providerData;
-        while (Date.now() < deadline) {
-          await new Promise((resolve) => setTimeout(resolve, 500));
-          latestProviders = await controller.providers().catch(() => latestProviders);
-          for (const name of pending) {
-            if (results[name] !== undefined) continue;
-            const entry = latestEntry(latestProviders, name);
-            if (!entry) continue;
-            const timestamp = Date.parse(entry.time);
-            if (Number.isFinite(timestamp) && timestamp >= startedAt - 1000) {
-              results[name] = entry.delay > 0 ? entry.delay : -1;
-            }
-          }
-          if (pending.every((name) => results[name] !== undefined)) break;
-        }
-        for (const name of pending) {
-          if (results[name] === undefined) {
-            const entry = latestEntry(latestProviders, name);
-            results[name] = entry && entry.delay > 0 ? entry.delay : -1;
-          }
+    const groupNames = new Set();
+    for (const name of providerTargets) {
+      for (const group of groupsByNode.get(name) || []) groupNames.add(group);
+    }
+    const groupResults = new Map();
+    let groupCursor = 0;
+    const groupList = [...groupNames];
+    const groupWorkers = Array.from({ length: Math.min(3, groupList.length) }, async () => {
+      while (groupCursor < groupList.length) {
+        const groupName = groupList[groupCursor++];
+        try {
+          groupResults.set(groupName, await controller.groupDelay(groupName, testUrl, delayTimeout));
+        } catch {
+          groupResults.set(groupName, null);
         }
       }
+    });
+    await Promise.all(groupWorkers);
+
+    for (const name of providerTargets) {
+      let value = -1;
+      for (const groupName of groupsByNode.get(name) || []) {
+        const map = groupResults.get(groupName);
+        const delay = Number(map?.[name]);
+        if (Number.isFinite(delay) && delay > 0 && delay < Math.min(delayTimeout, 3000)) {
+          value = delay;
+          break;
+        }
+      }
+      results[name] = value;
     }
 
     return { results };

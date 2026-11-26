@@ -73,6 +73,13 @@ class ControllerClient {
     });
   }
 
+  async groupDelay(group, url, timeout) {
+    const query = new URLSearchParams({ url, timeout: String(timeout) });
+    return this.request('GET', `/group/${encodeURIComponent(group)}/delay?${query}`, undefined, {
+      timeoutMs: timeout + 5000,
+    });
+  }
+
   async providers() {
     return this.request('GET', '/providers/proxies');
   }
