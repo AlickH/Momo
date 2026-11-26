@@ -14,7 +14,8 @@ test('validateSettings applies defaults and rejects invalid values', () => {
     subscriptionUpdateHours: 0,
     dnsPort: 1053,
     dnsNameserver: '',
-    tunEnabled: false,
+    proxyMode: 'off',
+    redirPort: 7892,
     tunStack: 'gvisor',
     tunAutoRoute: true,
     tunDnsHijack: true,
@@ -27,6 +28,9 @@ test('validateSettings applies defaults and rejects invalid values', () => {
   assert.equal(validateSettings({ subscriptionUpdateHours: 12 }).subscriptionUpdateHours, 12);
   assert.throws(() => validateSettings({ dnsPort: 53 }), /DNS 端口/);
   assert.equal(validateSettings({ dnsNameserver: 'https://doh.pub/dns-query' }).dnsNameserver, 'https://doh.pub/dns-query');
-  assert.equal(validateSettings({ tunEnabled: true, tunStack: 'system' }).tunStack, 'system');
+  assert.equal(validateSettings({ proxyMode: 'tun', tunStack: 'system' }).tunStack, 'system');
+  assert.equal(validateSettings({ proxyMode: 'redir', redirPort: 7893 }).redirPort, 7893);
+  assert.throws(() => validateSettings({ proxyMode: 'nope' }), /透明代理/);
   assert.throws(() => validateSettings({ tunStack: 'nope' }), /TUN 栈/);
+  assert.throws(() => validateSettings({ redirPort: 53 }), /Redir 端口/);
 });

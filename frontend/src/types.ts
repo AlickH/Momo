@@ -24,7 +24,8 @@ export interface Settings {
   subscriptionUpdateHours: number;
   dnsPort: number;
   dnsNameserver: string;
-  tunEnabled: boolean;
+  proxyMode: 'off' | 'tun' | 'redir';
+  redirPort: number;
   tunStack: 'gvisor' | 'system' | 'mixed';
   tunAutoRoute: boolean;
   tunDnsHijack: boolean;
@@ -80,6 +81,9 @@ export interface Status {
     platform: string;
     dataDir?: string;
     tunCapable?: boolean;
+    rootMode?: boolean;
+    transparentActive?: boolean;
+    transparentError?: string | null;
   };
 }
 

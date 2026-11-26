@@ -34,6 +34,8 @@ function resolveEnv(overrides = {}) {
     port: Number(overrides.port || process.env.PORT || 5001),
     allowNoAuth: overrides.allowNoAuth ?? process.env.ALLOW_NO_AUTH === '1',
     version: process.env.TRIM_APPVER || require('../package.json').version,
+    appUid: overrides.appUid ?? (Number(process.env.TRIM_UID) || null),
+    appGid: overrides.appGid ?? (Number(process.env.TRIM_GID) || null),
   };
 }
 

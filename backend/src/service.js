@@ -7,6 +7,7 @@ const { promisify } = require('node:util');
 const execFileAsync = promisify(execFile);
 const { CoreManager } = require('./core');
 const { StatsMonitor } = require('./stats');
+const { TransparentManager } = require('./transparent');
 const { ProfileManager, fetchSubscription } = require('./profiles');
 const { SettingsStore } = require('./settings');
 const { buildRuntimeConfig, parseProfile } = require('./config-builder');
@@ -26,10 +27,15 @@ class MomoService {
     this.settings = new SettingsStore(this.dataDir);
     this.profiles = new ProfileManager({ dataDir: this.dataDir, logger });
     this.stats = new StatsMonitor({ logger });
+    this.transparent = new TransparentManager({ logger });
+    this.transparentState = { active: false, error: null };
+    this.transparentBusy = false;
     this.core = new CoreManager({
       bin: env.coreBin,
       dataDir: this.coreDir,
       logger,
+      appUid: env.appUid,
+      appGid: env.appGid,
       prepareConfig: ({ controllerPort, secret }) =>
         this.writeRuntimeConfig(undefined, { controllerPort, secret }),
     });
@@ -38,8 +44,10 @@ class MomoService {
     this.core.on('state', (state) => {
       if (state.state === 'running' && this.core.controller) {
         this.stats.attach({ controller: this.core.controller, pid: this.core.pid });
+        void this.applyTransparentRules();
       } else {
         this.stats.detach();
+        void this.clearTransparentRules();
       }
     });
   }
@@ -51,7 +59,9 @@ class MomoService {
     await this.settings.load();
     await this.profiles.init();
     await this.copyGeodata();
+    await this.fixCoreOwnership();
     await this.detectTunCapability();
+    await this.transparent.clear();
     this.logger.info('app', `Momo ${this.env.version} 启动，数据目录 ${this.dataDir}`);
     this.profileUpdateTimer = setInterval(() => {
       void this.runScheduledProfileUpdates();
@@ -88,6 +98,63 @@ class MomoService {
       this.tunCapable = /cap_net_admin/.test(stdout);
     } catch {
       this.tunCapable = false;
+    }
+  }
+
+  async fixCoreOwnership() {
+    if (process.getuid?.() !== 0 || !this.env.appUid) return;
+    const walk = async (target) => {
+      await fs.chown(target, this.env.appUid, this.env.appGid || this.env.appUid);
+      const stat = await fs.stat(target);
+      if (!stat.isDirectory()) return;
+      for (const entry of await fs.readdir(target)) await walk(path.join(target, entry));
+    };
+    try {
+      await walk(this.coreDir);
+    } catch (error) {
+      this.logger.warn('app', `调整内核数据权限失败：${error.message}`);
+    }
+  }
+
+  async clearTransparentRules() {
+    this.transparentState = { active: false, error: null };
+    await this.transparent.clear();
+  }
+
+  async applyTransparentRules() {
+    if (this.transparentBusy) return;
+    this.transparentBusy = true;
+    try {
+      const mode = this.settings.get().proxyMode;
+      if (mode !== 'redir') {
+        await this.clearTransparentRules();
+        return;
+      }
+      if (process.getuid?.() !== 0) {
+        this.transparentState = { active: false, error: 'Redir 透明代理需要应用以 root 运行' };
+        this.logger.warn('transparent', this.transparentState.error);
+        return;
+      }
+      if (!this.core.running) return;
+      const settings = this.settings.get();
+      if (!this.env.appUid) {
+        this.transparentState = { active: false, error: '未能获取应用运行用户 UID，无法隔离 mihomo 流量' };
+        this.logger.warn('transparent', this.transparentState.error);
+        return;
+      }
+      await this.transparent.applyRedir({
+        mihomoUid: this.env.appUid,
+        redirPort: settings.redirPort,
+        dnsPort: settings.dnsPort,
+        mixedPort: settings.mixedPort,
+        controllerPort: this.core.controllerPort,
+      });
+      this.transparentState = { active: true, error: null };
+    } catch (error) {
+      this.transparentState = { active: false, error: error.message };
+      this.logger.error('transparent', `应用透明代理规则失败：${error.message}`);
+    } finally {
+      this.transparentBusy = false;
     }
   }
 
@@ -130,7 +197,7 @@ class MomoService {
     const activeContent = content === undefined ? await this.profiles.activeContent() : content;
     const parsed = activeContent ? parseProfile(activeContent).config : null;
     const yaml = buildRuntimeConfig(parsed, this.settings.get(), { controllerPort, secret });
-    await writeFileAtomic(this.configPath, yaml, 0o600);
+    await writeFileAtomic(this.configPath, yaml, 0o644);
     return this.configPath;
   }
 
@@ -148,7 +215,7 @@ class MomoService {
 
   async applyConfigYaml(yaml, { reload = true } = {}) {
     const previous = await fs.readFile(this.configPath, 'utf8').catch(() => null);
-    await writeFileAtomic(this.configPath, yaml, 0o600);
+    await writeFileAtomic(this.configPath, yaml, 0o644);
     if (!reload || !this.core.running) return;
     try {
       await this.core.reload(this.configPath);
@@ -157,7 +224,7 @@ class MomoService {
       try {
         await this.core.restart();
       } catch (restartError) {
-        if (previous) await writeFileAtomic(this.configPath, previous, 0o600);
+        if (previous) await writeFileAtomic(this.configPath, previous, 0o644);
         throw restartError;
       }
     }
@@ -182,6 +249,9 @@ class MomoService {
         platform: `${os.platform()} ${os.arch()}`,
         dataDir: this.dataDir,
         tunCapable: Boolean(this.tunCapable),
+        rootMode: process.getuid?.() === 0,
+        transparentActive: this.transparentState.active,
+        transparentError: this.transparentState.error,
       },
     };
   }
@@ -624,9 +694,10 @@ class MomoService {
     return { logs: this.logger.list(query), latestId: this.logger.latestId() };
   }
 
-  shutdown() {
+  async shutdown() {
     this.stats.detach();
     if (this.profileUpdateTimer) clearInterval(this.profileUpdateTimer);
+    await this.transparent.clear();
   }
 }
 

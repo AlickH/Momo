@@ -256,25 +256,29 @@ export function SettingsPage() {
           <Card>
             <div className="flex items-center gap-2 border-b border-line/8 pb-3">
               <Network className="h-4 w-4 text-accent" />
-              <h3 className="text-sm font-semibold text-ink">TUN 模式</h3>
+              <h3 className="text-sm font-semibold text-ink">透明代理</h3>
+              {status!.app.transparentActive ? <Badge tone="success">已生效</Badge> : null}
             </div>
             <div className="pt-1">
-              <SettingRow title="启用 TUN" description="创建 TUN 虚拟网卡并接管系统流量，需要内核具备 NET_ADMIN 能力。">
-                <Switch
-                  checked={form.tunEnabled}
-                  onChange={(value) => setForm((prev) => ({ ...prev, tunEnabled: value }))}
-                  disabled={!status!.app.tunCapable}
-                  label="启用 TUN"
-                />
+              <SettingRow title="代理模式" description="TUN 支持 TCP/UDP；Redir 仅接管 TCP 和 DNS，UDP/QUIC 仍直连。切换后内核会重启。">
+                <select
+                  value={form.proxyMode}
+                  onChange={(event) => setForm((prev) => ({ ...prev, proxyMode: event.target.value as Settings['proxyMode'] }))}
+                  className="focus-ring h-9 rounded-lg border border-line/10 bg-surface2 px-2.5 text-xs text-ink"
+                >
+                  <option value="off">关闭</option>
+                  <option value="tun" disabled={!status!.app.tunCapable}>TUN</option>
+                  <option value="redir" disabled={!status!.app.rootMode}>Redir（TCP）</option>
+                </select>
               </SettingRow>
-              {!status!.app.tunCapable ? (
-                <p className="mt-2 rounded-lg border border-warning/15 bg-warning/6 px-3 py-2 text-[10px] leading-relaxed text-warning">
-                  当前内核缺少 cap_net_admin 能力。请重新安装/升级 FPK 以执行安装脚本授予能力，或手动执行 setcap。
-                </p>
-              ) : null}
-              {form.tunEnabled ? (
+              {form.proxyMode === 'tun' ? (
                 <>
-                  <SettingRow title="TUN 栈" description="gvisor 兼容性最好；system 性能更高；mixed 由内核选择。">
+                  {!status!.app.tunCapable ? (
+                    <p className="mt-2 rounded-lg border border-warning/15 bg-warning/6 px-3 py-2 text-[10px] leading-relaxed text-warning">
+                      当前内核缺少 cap_net_admin 能力。请重新安装/升级 FPK，或手动执行 setcap。
+                    </p>
+                  ) : null}
+                  <SettingRow title="TUN 栈" description="gVisor 兼容性最好；System 性能更高；Mixed 由内核选择。">
                     <select
                       value={form.tunStack}
                       onChange={(event) => setForm((prev) => ({ ...prev, tunStack: event.target.value as Settings['tunStack'] }))}
@@ -292,8 +296,31 @@ export function SettingsPage() {
                     <Switch checked={form.tunDnsHijack} onChange={(value) => setForm((prev) => ({ ...prev, tunDnsHijack: value }))} label="DNS 劫持" />
                   </SettingRow>
                   <p className="mt-2 rounded-lg border border-warning/15 bg-warning/6 px-3 py-2 text-[10px] leading-relaxed text-warning">
-                    TUN 模式会影响整个 NAS 的网络出口；如果开启后 SSH/管理页面断开，可等待应用自动恢复，或通过应用中心停止 Momo 后重新连接。
+                    TUN 模式会影响整个 NAS 的网络出口；如果开启后 SSH/管理页面断开，可通过应用中心停止 Momo 后重新连接。
                   </p>
+                </>
+              ) : null}
+              {form.proxyMode === 'redir' ? (
+                <>
+                  {!status!.app.rootMode ? (
+                    <p className="mt-2 rounded-lg border border-warning/15 bg-warning/6 px-3 py-2 text-[10px] leading-relaxed text-warning">
+                      Redir 需要应用以 root 运行，当前安装包不是 root 模式。
+                    </p>
+                  ) : null}
+                  <SettingRow title="Redir 端口" description="nftables 把本机新建 TCP 连接重定向到该端口；不要与其它透明代理占用同一端口。">
+                    <input
+                      type="number"
+                      min={1024}
+                      max={65535}
+                      value={form.redirPort}
+                      onChange={(event) => setForm((prev) => ({ ...prev, redirPort: Number(event.target.value) }))}
+                      className="focus-ring h-9 w-24 rounded-lg border border-line/10 bg-surface2 px-2.5 text-right text-sm text-ink tabular"
+                    />
+                  </SettingRow>
+                  <p className="mt-2 rounded-lg border border-warning/15 bg-warning/6 px-3 py-2 text-[10px] leading-relaxed text-warning">
+                    启用后所有本机新建 TCP 连接和 DNS 查询会被接管（mihomo 自身流量除外）。如果和 ShellCrash 同时管理透明代理，规则会冲突；请只保留一个。
+                  </p>
+                  {status!.app.transparentError ? <p className="mt-2 text-[10px] text-danger">{status!.app.transparentError}</p> : null}
                 </>
               ) : null}
             </div>

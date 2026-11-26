@@ -31,7 +31,8 @@ const SETTINGS = {
   subscriptionUpdateHours: 0,
   dnsPort: 1053,
   dnsNameserver: '',
-  tunEnabled: false,
+  proxyMode: 'off',
+  redirPort: 7892,
   tunStack: 'gvisor',
   tunAutoRoute: true,
   tunDnsHijack: true,
@@ -83,14 +84,20 @@ test('buildRuntimeConfig applies configured DNS listen and nameservers', () => {
   assert.deepEqual(config.dns.nameserver, ['https://doh.pub/dns-query', '223.5.5.5']);
 });
 
-test('buildRuntimeConfig enables and disables TUN from app settings', () => {
-  const enabled = YAML.parse(buildRuntimeConfig(null, { ...SETTINGS, tunEnabled: true, tunStack: 'system' }, { controllerPort: 19090, secret: 'x' }));
+test('buildRuntimeConfig enables and disables TUN/Redir from app settings', () => {
+  const enabled = YAML.parse(buildRuntimeConfig(null, { ...SETTINGS, proxyMode: 'tun', tunStack: 'system' }, { controllerPort: 19090, secret: 'x' }));
   assert.equal(enabled.tun.enable, true);
   assert.equal(enabled.tun.stack, 'system');
   assert.deepEqual(enabled.tun['dns-hijack'], ['any:53']);
+  assert.equal(enabled['redir-port'], 0);
+
+  const redir = YAML.parse(buildRuntimeConfig(null, { ...SETTINGS, proxyMode: 'redir', redirPort: 7892 }, { controllerPort: 19090, secret: 'x' }));
+  assert.equal(redir.tun, undefined);
+  assert.equal(redir['redir-port'], 7892);
 
   const disabled = YAML.parse(buildRuntimeConfig({ tun: { enable: true, stack: 'gvisor' } }, SETTINGS, { controllerPort: 19090, secret: 'x' }));
   assert.equal(disabled.tun.enable, false);
+  assert.equal(disabled['redir-port'], 0);
 });
 
 test('buildRuntimeConfig supplies a minimal direct config when no profile exists', () => {

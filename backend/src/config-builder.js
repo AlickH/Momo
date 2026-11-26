@@ -98,19 +98,22 @@ function buildRuntimeConfig(profile, settings, { controllerPort, secret }) {
     },
   });
 
-  if (settings.tunEnabled) {
+  const proxyMode = settings.proxyMode || (settings.tunEnabled ? 'tun' : 'off');
+  if (isPlainObject(config.tun) || proxyMode === 'tun') {
     config.tun = {
       ...(isPlainObject(config.tun) ? config.tun : {}),
-      enable: true,
-      stack: settings.tunStack,
-      device: 'momo0',
-      'auto-route': settings.tunAutoRoute,
-      'auto-detect-interface': settings.tunAutoRoute,
-      'dns-hijack': settings.tunDnsHijack ? ['any:53'] : [],
+      enable: proxyMode === 'tun',
+      ...(proxyMode === 'tun' ? {
+        stack: settings.tunStack,
+        device: 'momo0',
+        'auto-route': settings.tunAutoRoute,
+        'auto-detect-interface': settings.tunAutoRoute,
+        'dns-hijack': settings.tunDnsHijack ? ['any:53'] : [],
+      } : {}),
     };
-  } else if (isPlainObject(config.tun)) {
-    config.tun = { ...config.tun, enable: false };
   }
+  config['redir-port'] = proxyMode === 'redir' ? settings.redirPort : 0;
+  config['tproxy-port'] = 0;
 
   if (isPlainObject(config.dns)) {
     const dns = { ...config.dns, listen: `0.0.0.0:${settings.dnsPort}` };

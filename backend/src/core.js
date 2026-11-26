@@ -8,12 +8,14 @@ const { findFreePort, randomSecret, sleep } = require('./util');
 const START_TIMEOUT_MS = 60000;
 
 class CoreManager extends EventEmitter {
-  constructor({ bin, dataDir, logger, prepareConfig }) {
+  constructor({ bin, dataDir, logger, prepareConfig, appUid = null, appGid = null }) {
     super();
     this.bin = bin;
     this.dataDir = dataDir;
     this.logger = logger;
     this.prepareConfig = prepareConfig;
+    this.appUid = appUid;
+    this.appGid = appGid;
     this.child = null;
     this.controller = null;
     this.state = 'stopped';
@@ -87,11 +89,16 @@ class CoreManager extends EventEmitter {
     }
 
     const controller = new ControllerClient({ port: controllerPort, secret: this.secret });
-    const child = spawn(this.bin, ['-d', this.dataDir, '-f', configPath], {
+    const spawnOptions = {
       cwd: this.dataDir,
       env: { ...process.env },
       stdio: ['ignore', 'pipe', 'pipe'],
-    });
+    };
+    if (process.getuid?.() === 0 && this.appUid) {
+      spawnOptions.uid = this.appUid;
+      if (this.appGid) spawnOptions.gid = this.appGid;
+    }
+    const child = spawn(this.bin, ['-d', this.dataDir, '-f', configPath], spawnOptions);
     this.child = child;
     this.pid = child.pid;
     this.controller = controller;

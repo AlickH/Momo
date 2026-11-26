@@ -53,7 +53,7 @@ async function main() {
     } catch (error) {
       logger.error('app', `停止核心失败：${error.message}`);
     }
-    service.shutdown();
+    await service.shutdown();
     await new Promise((resolve) => server.close(resolve));
     if (env.socketPath) {
       await fs.promises.rm(env.socketPath, { force: true });

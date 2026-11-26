@@ -13,13 +13,15 @@ const DEFAULTS = Object.freeze({
   subscriptionUpdateHours: 0,
   dnsPort: 1053,
   dnsNameserver: '',
-  tunEnabled: false,
+  proxyMode: 'off',
+  redirPort: 7892,
   tunStack: 'gvisor',
   tunAutoRoute: true,
   tunDnsHijack: true,
 });
 
 const TUN_STACKS = new Set(['gvisor', 'system', 'mixed']);
+const PROXY_MODES = new Set(['off', 'tun', 'redir']);
 
 const MODES = new Set(['rule', 'global', 'direct']);
 const LOG_LEVELS = new Set(['debug', 'info', 'warning', 'error', 'silent']);
@@ -67,9 +69,14 @@ function validateSettings(input) {
     if (!Number.isInteger(port) || port < 1024 || port > 65535) errors.push('DNS 端口必须是 1024 到 65535 之间的整数');
     else result.dnsPort = port;
   }
-  if (input.tunEnabled !== undefined) {
-    if (typeof input.tunEnabled !== 'boolean') errors.push('tunEnabled 必须是布尔值');
-    else result.tunEnabled = input.tunEnabled;
+  if (input.proxyMode !== undefined) {
+    if (!PROXY_MODES.has(input.proxyMode)) errors.push('透明代理模式无效');
+    else result.proxyMode = input.proxyMode;
+  }
+  if (input.redirPort !== undefined) {
+    const port = Number(input.redirPort);
+    if (!Number.isInteger(port) || port < 1024 || port > 65535) errors.push('Redir 端口必须是 1024 到 65535 之间的整数');
+    else result.redirPort = port;
   }
   if (input.tunStack !== undefined) {
     if (!TUN_STACKS.has(input.tunStack)) errors.push('TUN 栈必须是 gvisor、system 或 mixed');
@@ -104,7 +111,13 @@ class SettingsStore {
 
   async load() {
     const stored = await readJson(this.file, null);
-    this.value = stored ? validateSettings({ ...DEFAULTS, ...stored }) : { ...DEFAULTS };
+    if (!stored) {
+      this.value = { ...DEFAULTS };
+      return this.value;
+    }
+    const merged = { ...DEFAULTS, ...stored };
+    if (stored.proxyMode === undefined && stored.tunEnabled === true) merged.proxyMode = 'tun';
+    this.value = validateSettings(merged);
     return this.value;
   }
 

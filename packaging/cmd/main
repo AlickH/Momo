@@ -59,6 +59,7 @@ start_app() {
   fi
 
   rm -f "$SOCKET_PATH"
+  command -v nft >/dev/null 2>&1 && nft delete table inet momo 2>/dev/null || true
   pkill -f "${CORE_BIN} -d ${DATA_DIR}/core" 2>/dev/null || true
 
   log_msg "Starting Momo..."
@@ -121,6 +122,7 @@ stop_app() {
   fi
 
   rm -f "$PID_FILE" "$SOCKET_PATH"
+  command -v nft >/dev/null 2>&1 && nft delete table inet momo 2>/dev/null || true
   pkill -f "${CORE_BIN} -d ${DATA_DIR}/core" 2>/dev/null || true
   log_msg "Momo stopped"
   return 0
