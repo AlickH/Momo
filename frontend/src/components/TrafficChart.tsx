@@ -12,6 +12,7 @@ echarts.use([LineChart, GridComponent, TooltipComponent, CanvasRenderer]);
 
 const WINDOW_MS = 60_000;
 const Y_FLOOR = 60 * 1024;
+const AXIS_FRAME_MS = 50;
 
 function cssColor(name: string, alpha = 1): string {
   const raw = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -37,6 +38,8 @@ export function TrafficChart({ history }: { history: TrafficPoint[] }) {
   const { theme } = useApp();
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<echarts.ECharts | null>(null);
+  const anchorRef = useRef({ latest: 0, at: 0 });
+  const frameRef = useRef(0);
 
   const points = useMemo(() => {
     const latest = history.at(-1)?.t ?? Date.now();
@@ -50,11 +53,8 @@ export function TrafficChart({ history }: { history: TrafficPoint[] }) {
     const textMuted = cssColor('--muted', 0.8);
     const grid = cssColor('--line', 0.08);
     return {
-      animation: true,
-      animationDuration: 400,
-      animationDurationUpdate: 1000,
-      animationEasingUpdate: 'linear',
-      grid: { left: 48, top: 14, right: 14, bottom: 28 },
+      animation: false,
+      grid: { left: 48, top: 14, right: 14, bottom: 18 },
       tooltip: {
         trigger: 'axis',
         confine: true,
@@ -76,13 +76,7 @@ export function TrafficChart({ history }: { history: TrafficPoint[] }) {
         axisLine: { show: false },
         axisTick: { show: false },
         splitLine: { show: false },
-        axisLabel: {
-          show: false,
-          color: textMuted,
-          fontSize: 9,
-          hideOverlap: true,
-          formatter: (value: number) => new Date(value).toLocaleTimeString('zh-CN', { hour12: false, minute: '2-digit', second: '2-digit' }),
-        },
+        axisLabel: { show: false },
       },
       yAxis: {
         type: 'value',
@@ -158,7 +152,26 @@ export function TrafficChart({ history }: { history: TrafficPoint[] }) {
     chartRef.current = chart;
     const observer = new ResizeObserver(() => chart.resize());
     observer.observe(element);
+
+    let lastFrame = 0;
+    const tick = (now: number) => {
+      if (now - lastFrame >= AXIS_FRAME_MS) {
+        lastFrame = now;
+        const anchor = anchorRef.current;
+        if (anchor.latest) {
+          const latest = anchor.latest + (performance.now() - anchor.at);
+          chart.setOption({
+            animationDurationUpdate: 0,
+            xAxis: { min: latest - WINDOW_MS, max: latest - 1000 },
+          }, { lazyUpdate: true });
+        }
+      }
+      frameRef.current = requestAnimationFrame(tick);
+    };
+    frameRef.current = requestAnimationFrame(tick);
+
     return () => {
+      cancelAnimationFrame(frameRef.current);
       observer.disconnect();
       chart.dispose();
       chartRef.current = null;
@@ -166,8 +179,10 @@ export function TrafficChart({ history }: { history: TrafficPoint[] }) {
   }, []);
 
   useEffect(() => {
+    const latest = points.at(-1)?.t ?? Date.now();
+    anchorRef.current = { latest, at: performance.now() };
     chartRef.current?.setOption(option);
-  }, [option]);
+  }, [option, points]);
 
   return (
     <div
