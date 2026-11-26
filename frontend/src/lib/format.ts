@@ -80,7 +80,7 @@ export function formatExpiry(expireSeconds: number): { text: string; expired: bo
 }
 
 export function delayTone(delay: number | null | undefined): 'good' | 'ok' | 'bad' | 'none' {
-  if (delay === null || delay === undefined || delay < 0) return 'none';
+  if (delay === null || delay === undefined || delay <= 0) return 'none';
   if (delay <= 200) return 'good';
   if (delay <= 600) return 'ok';
   return 'bad';

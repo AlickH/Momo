@@ -20,7 +20,7 @@ import { DelayBadge } from '../components/DelayBadge';
 import type { ProxiesData, Provider, ProxyGroup } from '../types';
 
 const DEFAULT_TEST_URL = 'https://www.gstatic.com/generate_204';
-const CHUNK_SIZE = 60;
+const CHUNK_SIZE = 200;
 const BUILTIN_PROXIES = new Set(['DIRECT', 'REJECT', 'REJECT-DROP', 'PASS', 'PASS-RULE', 'COMPATIBLE', 'GLOBAL']);
 
 const groupTone = (type: string): 'accent' | 'info' | 'warning' | 'neutral' => {
@@ -222,6 +222,7 @@ export function ProxiesPage() {
           names: chunk,
           url: DEFAULT_TEST_URL,
           timeout: 5000,
+          force: true,
         }, { timeoutMs: 60000 });
         Object.assign(merged, result.results);
         setDelays((prev) => ({ ...prev, ...merged }));

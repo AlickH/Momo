@@ -444,7 +444,7 @@ class MomoService {
     const addNode = (name, item, provider = '') => {
       if (!name || !item || typeof item !== 'object') return;
       const history = Array.isArray(item.history) ? item.history : [];
-      const last = [...history].reverse().find((entry) => Number.isFinite(entry.delay));
+      const last = [...history].reverse().find((entry) => Number.isFinite(entry.delay) && entry.delay > 0);
       nodes[name] = {
         name,
         type: item.type || 'Unknown',
@@ -500,9 +500,9 @@ class MomoService {
     return { ok: true };
   }
 
-  async testDelay({ names, url = DEFAULT_DELAY_URL, timeout = 5000 }) {
+  async testDelay({ names, url = DEFAULT_DELAY_URL, timeout = 5000, force = false }) {
     if (!Array.isArray(names) || names.length === 0) throw badRequest('请选择要测试的节点');
-    if (names.length > 80) throw badRequest('一次最多测试 80 个节点');
+    if (names.length > 300) throw badRequest('一次最多测试 300 个节点');
     if (!names.every((name) => typeof name === 'string' && name.length > 0)) {
       throw badRequest('节点名称无效');
     }
@@ -551,14 +551,10 @@ class MomoService {
 
     const providerTargets = names.filter((name) => !proxyKeys.has(name) && providerByNode.has(name));
     if (providerTargets.length) {
-      const recentThreshold = Date.now() - 60000;
-      const latestDelay = (providers, name) => {
+      const latestEntry = (providers, name) => {
         const providerMeta = providerByNode.get(name);
         const node = (providers.providers?.[providerMeta.name]?.proxies || []).find((proxy) => proxy.name === name);
-        const latest = [...(node?.history || [])].reverse().find((entry) => Number.isFinite(entry.delay));
-        if (!latest) return null;
-        const timestamp = Date.parse(latest.time);
-        return { delay: latest.delay, fresh: Number.isFinite(timestamp) && timestamp >= recentThreshold };
+        return [...(node?.history || [])].reverse().find((entry) => Number.isFinite(entry.delay)) || null;
       };
 
       const pending = providerTargets.filter((name) => {
@@ -567,35 +563,43 @@ class MomoService {
           results[name] = -1;
           return false;
         }
-        const found = latestDelay(providerData, name);
-        if (found?.fresh) {
-          results[name] = found.delay;
-          return false;
+        if (!force) {
+          const entry = latestEntry(providerData, name);
+          const timestamp = entry ? Date.parse(entry.time) : NaN;
+          if (entry && Number.isFinite(timestamp) && timestamp >= Date.now() - 60000) {
+            results[name] = entry.delay > 0 ? entry.delay : -1;
+            return false;
+          }
         }
         return true;
       });
 
       if (pending.length) {
         const providersToCheck = new Set(pending.map((name) => providerByNode.get(name).name));
+        const startedAt = Date.now();
         await Promise.all([...providersToCheck].map((providerName) => (
           controller.healthcheckProvider(providerName).catch(() => {})
         )));
-        const deadline = Date.now() + 15000;
+        const deadline = Date.now() + 20000;
         let latestProviders = providerData;
         while (Date.now() < deadline) {
           await new Promise((resolve) => setTimeout(resolve, 500));
           latestProviders = await controller.providers().catch(() => latestProviders);
-          const unresolved = pending.filter((name) => results[name] === undefined);
-          for (const name of unresolved) {
-            const found = latestDelay(latestProviders, name);
-            if (found?.fresh) results[name] = found.delay;
+          for (const name of pending) {
+            if (results[name] !== undefined) continue;
+            const entry = latestEntry(latestProviders, name);
+            if (!entry) continue;
+            const timestamp = Date.parse(entry.time);
+            if (Number.isFinite(timestamp) && timestamp >= startedAt - 1000) {
+              results[name] = entry.delay > 0 ? entry.delay : -1;
+            }
           }
           if (pending.every((name) => results[name] !== undefined)) break;
         }
         for (const name of pending) {
           if (results[name] === undefined) {
-            const found = latestDelay(latestProviders, name);
-            results[name] = found ? found.delay : -1;
+            const entry = latestEntry(latestProviders, name);
+            results[name] = entry && entry.delay > 0 ? entry.delay : -1;
           }
         }
       }

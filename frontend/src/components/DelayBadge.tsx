@@ -19,7 +19,7 @@ export function DelayBadge({
     );
   }
   const tone = delayTone(delay);
-  const label = delay === null || delay === undefined ? '—' : delay < 0 ? '超时' : `${delay}ms`;
+  const label = delay === null || delay === undefined || delay === 0 ? '—' : delay < 0 ? '超时' : `${delay}ms`;
   return (
     <span
       className={cn(
@@ -30,7 +30,7 @@ export function DelayBadge({
         tone === 'none' && 'border-line/8 bg-surface3 text-muted',
         compact && 'px-1 py-0 text-[10px]',
       )}
-      title={delay === null || delay === undefined ? '尚未测速' : delay < 0 ? '测速失败' : `延迟 ${delay} ms`}
+      title={delay === null || delay === undefined || delay === 0 ? '尚未测速' : delay < 0 ? '测速失败' : `延迟 ${delay} ms`}
     >
       <Zap className="h-2.5 w-2.5" />
       {label}
