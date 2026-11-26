@@ -102,6 +102,22 @@ function createApp({ env, service, logger }) {
   api.get('/core/configs', asyncRoute(async (req, res) => res.json(await service.getConfigs())));
 
   api.get('/traffic', asyncRoute(async (req, res) => res.json(await service.getTraffic())));
+  api.get('/traffic/stream', (req, res) => {
+    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders();
+    res.write('retry: 1000\n\n');
+    const send = (snapshot) => res.write(`data: ${JSON.stringify(snapshot)}\n\n`);
+    send(service.stats.snapshot());
+    const unsubscribe = service.stats.onSample(send);
+    const heartbeat = setInterval(() => res.write(': ping\n\n'), 15000);
+    req.on('close', () => {
+      clearInterval(heartbeat);
+      unsubscribe();
+    });
+  });
   api.get('/connections', asyncRoute(async (req, res) => res.json(await service.getConnections())));
   api.delete('/connections/:id', asyncRoute(async (req, res) => {
     res.json(await service.closeConnection(req.params.id));

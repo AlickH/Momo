@@ -30,6 +30,7 @@ class StatsMonitor {
     this.pid = null;
     this.inFlight = false;
     this.tickCount = 0;
+    this.listeners = new Set();
     this.reset();
   }
 
@@ -102,6 +103,24 @@ class StatsMonitor {
     } finally {
       if (this.tickCount % 5 === 0 && this.pid) this.memory = await readRss(this.pid);
       this.inFlight = false;
+      this.emitSample();
+    }
+  }
+
+  onSample(listener) {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+
+  emitSample() {
+    if (!this.listeners.size) return;
+    const snapshot = this.snapshot();
+    for (const listener of this.listeners) {
+      try {
+        listener(snapshot);
+      } catch (error) {
+        this.logger.warn('stats', `推送流量样本失败：${error.message}`);
+      }
     }
   }
 

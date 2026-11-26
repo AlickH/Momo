@@ -108,17 +108,43 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const meReady = Boolean(me) || denied;
 
   const statusPoll = usePolling<Status>(() => api.get('status'), 5000, { enabled: meReady });
-  const trafficPoll = usePolling<Traffic>(() => api.get('traffic'), 1000, { enabled: meReady });
+  const [traffic, setTraffic] = useState<Traffic | null>(null);
+
+  useEffect(() => {
+    if (!meReady) {
+      setTraffic(null);
+      return;
+    }
+    const controller = new AbortController();
+    let retry: ReturnType<typeof setTimeout> | undefined;
+    const connect = async () => {
+      try {
+        await api.stream<Traffic>('traffic/stream', setTraffic, controller.signal);
+      } catch {
+        if (controller.signal.aborted) return;
+      }
+      if (!controller.signal.aborted) retry = setTimeout(connect, 1000);
+    };
+    void connect();
+    return () => {
+      controller.abort();
+      if (retry) clearTimeout(retry);
+    };
+  }, [meReady]);
 
   const refreshStatus = useCallback(async () => statusPoll.refresh(), [statusPoll]);
-  const refreshTraffic = useCallback(async () => trafficPoll.refresh(), [trafficPoll]);
+  const refreshTraffic = useCallback(async () => {
+    const snapshot = await api.get<Traffic>('traffic');
+    setTraffic(snapshot);
+    return snapshot;
+  }, []);
 
   const setMode = useCallback(async (mode: Mode) => {
     if (modePending) return;
     setModePending(mode);
     try {
       await api.post('core/mode', { mode });
-      await Promise.all([statusPoll.refresh(), trafficPoll.refresh()]);
+      await Promise.all([statusPoll.refresh(), refreshTraffic()]);
       toast('模式已切换', 'success');
     } catch (error) {
       toast(error instanceof Error ? error.message : '切换模式失败', 'error');
@@ -126,7 +152,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } finally {
       setModePending(null);
     }
-  }, [modePending, statusPoll, trafficPoll, toast]);
+  }, [modePending, statusPoll, refreshTraffic, toast]);
 
   const toggleTheme = useCallback(() => {
     setThemeMode(theme === 'dark' ? 'light' : 'dark');
@@ -142,7 +168,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     me,
     status: statusPoll.data,
     statusError: statusPoll.error,
-    traffic: trafficPoll.data,
+    traffic,
     ready: meReady && Boolean(statusPoll.data),
     denied,
     bootError,
@@ -156,7 +182,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setThemeMode,
     toggleTheme,
   }), [
-    me, statusPoll.data, statusPoll.error, trafficPoll.data, meReady, denied, bootError, retryBoot,
+    me, statusPoll.data, statusPoll.error, traffic, meReady, denied, bootError, retryBoot,
     refreshStatus, refreshTraffic, setMode, modePending, theme, themeMode, setThemeMode, toggleTheme,
   ]);
 

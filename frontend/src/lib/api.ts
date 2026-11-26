@@ -71,6 +71,43 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   }
 }
 
+
+export async function stream<T>(
+  path: string,
+  onData: (data: T) => void,
+  signal: AbortSignal,
+): Promise<void> {
+  const response = await fetch(`${BASE}api/${path}`, {
+    headers: { Accept: 'text/event-stream' },
+    credentials: 'same-origin',
+    signal,
+  });
+  if (!response.ok || !response.body) {
+    const text = await response.text().catch(() => '');
+    throw new ApiError(text || `流量流连接失败（HTTP ${response.status}）`, response.status);
+  }
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let boundary = buffer.indexOf('\n\n');
+    while (boundary >= 0) {
+      const event = buffer.slice(0, boundary);
+      buffer = buffer.slice(boundary + 2);
+      for (const line of event.split('\n')) {
+        if (!line.startsWith('data:')) continue;
+        const payload = line.slice(5).trim();
+        if (payload) onData(JSON.parse(payload) as T);
+      }
+      boundary = buffer.indexOf('\n\n');
+    }
+  }
+  throw new ApiError('流量流已断开', 0);
+}
+
 export const api = {
   get: <T>(path: string, options?: RequestOptions) => request<T>(path, { ...options, method: 'GET' }),
   post: <T>(path: string, body?: unknown, options?: RequestOptions) =>
@@ -78,4 +115,5 @@ export const api = {
   patch: <T>(path: string, body?: unknown, options?: RequestOptions) =>
     request<T>(path, { ...options, method: 'PATCH', body }),
   delete: <T>(path: string, options?: RequestOptions) => request<T>(path, { ...options, method: 'DELETE' }),
+  stream,
 };

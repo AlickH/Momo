@@ -351,7 +351,7 @@ export function OverviewPage() {
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-[11px] text-muted/50">
-        <span className="flex items-center gap-1.5"><Timer className="h-3 w-3" /> 数据每 2 秒刷新 · 内核 {core.version ?? '—'}</span>
+        <span className="flex items-center gap-1.5"><Timer className="h-3 w-3" /> 实时推送 · 内核 {core.version ?? '—'}</span>
         <span>最近更新 {formatDate(proxies.lastUpdated ?? Date.now())}</span>
       </div>
 
