@@ -263,7 +263,14 @@ export function SettingsPage() {
               <SettingRow title="代理模式" description="TUN 支持 TCP/UDP；Redir 仅接管 TCP 和 DNS，UDP/QUIC 仍直连。切换后内核会重启。">
                 <select
                   value={form.proxyMode}
-                  onChange={(event) => setForm((prev) => ({ ...prev, proxyMode: event.target.value as Settings['proxyMode'] }))}
+                  onChange={(event) => {
+                    const mode = event.target.value as Settings['proxyMode'];
+                    setForm((prev) => ({
+                      ...prev,
+                      proxyMode: mode,
+                      ...(mode === 'tun' ? { tunAutoRoute: true, tunDnsHijack: true } : {}),
+                    }));
+                  }}
                   className="focus-ring h-9 rounded-lg border border-line/10 bg-surface2 px-2.5 text-xs text-ink"
                 >
                   <option value="off">关闭</option>
@@ -295,6 +302,11 @@ export function SettingsPage() {
                   <SettingRow title="DNS 劫持" description="把发往 53 端口的 DNS 请求交给 mihomo DNS 处理。">
                     <Switch checked={form.tunDnsHijack} onChange={(value) => setForm((prev) => ({ ...prev, tunDnsHijack: value }))} label="DNS 劫持" />
                   </SettingRow>
+                  {!form.tunAutoRoute ? (
+                    <p className="mt-2 rounded-lg border border-danger/20 bg-danger/6 px-3 py-2 text-[10px] leading-relaxed text-danger">
+                      自动接管路由未开启：TUN 网卡已创建，但本机流量不会进入 mihomo，连接页会一直为空。需要透明代理请开启“自动接管路由”。
+                    </p>
+                  ) : null}
                   <p className="mt-2 rounded-lg border border-warning/15 bg-warning/6 px-3 py-2 text-[10px] leading-relaxed text-warning">
                     TUN 模式会影响整个 NAS 的网络出口；如果开启后 SSH/管理页面断开，可通过应用中心停止 Momo 后重新连接。
                   </p>
