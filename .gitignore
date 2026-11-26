@@ -1,0 +1,9 @@
+node_modules/
+dist/
+dev-data/
+vendor/*
+!vendor/.gitkeep
+*.fpk
+.DS_Store
+frontend/dist/
+backend/coverage/
