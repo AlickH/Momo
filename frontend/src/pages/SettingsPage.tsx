@@ -26,6 +26,7 @@ import {
   Server,
   Send,
   Globe,
+  CalendarClock,
 } from 'lucide-react';
 import { useApp, type ThemeMode } from '../context/AppContext';
 import { api } from '../lib/api';
@@ -637,6 +638,56 @@ export function SettingsPage() {
                   <option value={12}>每 12 小时</option>
                   <option value={24}>每天</option>
                   <option value={48}>每 2 天</option>
+                  <option value={168}>每周</option>
+                </select>
+              </SettingRow>
+            </div>
+          </Card>
+
+          <Card>
+            <div className="flex items-center gap-2 border-b border-line/8 pb-3">
+              <CalendarClock className="h-4 w-4 text-accent" />
+              <h3 className="text-sm font-semibold text-ink">定时任务</h3>
+            </div>
+            <div className="pt-1">
+              <SettingRow title="定时更新 Provider" description="定时重新下载所有 proxy provider 的节点列表。">
+                <select
+                  value={form.providerUpdateHours}
+                  onChange={(event) => setForm((prev) => ({ ...prev, providerUpdateHours: Number(event.target.value) }))}
+                  className="focus-ring h-9 rounded-lg border border-line/10 bg-surface2 px-2.5 text-xs text-ink"
+                >
+                  <option value={0}>关闭</option>
+                  <option value={6}>每 6 小时</option>
+                  <option value={12}>每 12 小时</option>
+                  <option value={24}>每天</option>
+                  <option value={48}>每 2 天</option>
+                  <option value={168}>每周</option>
+                </select>
+              </SettingRow>
+              <SettingRow title="定时更新规则集" description="定时重新下载所有 RULE-SET 规则文件。">
+                <select
+                  value={form.ruleProviderUpdateHours}
+                  onChange={(event) => setForm((prev) => ({ ...prev, ruleProviderUpdateHours: Number(event.target.value) }))}
+                  className="focus-ring h-9 rounded-lg border border-line/10 bg-surface2 px-2.5 text-xs text-ink"
+                >
+                  <option value={0}>关闭</option>
+                  <option value={6}>每 6 小时</option>
+                  <option value={12}>每 12 小时</option>
+                  <option value={24}>每天</option>
+                  <option value={48}>每 2 天</option>
+                  <option value={168}>每周</option>
+                </select>
+              </SettingRow>
+              <SettingRow title="定时重启内核" description="按固定间隔重启 mihomo，用于释放内存或刷新连接。">
+                <select
+                  value={form.coreRestartHours}
+                  onChange={(event) => setForm((prev) => ({ ...prev, coreRestartHours: Number(event.target.value) }))}
+                  className="focus-ring h-9 rounded-lg border border-line/10 bg-surface2 px-2.5 text-xs text-ink"
+                >
+                  <option value={0}>关闭</option>
+                  <option value={24}>每天</option>
+                  <option value={48}>每 2 天</option>
+                  <option value={72}>每 3 天</option>
                   <option value={168}>每周</option>
                 </select>
               </SettingRow>

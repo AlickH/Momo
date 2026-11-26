@@ -22,6 +22,9 @@ export interface Settings {
   unifiedDelay: boolean;
   tcpConcurrent: boolean;
   subscriptionUpdateHours: number;
+  providerUpdateHours: number;
+  ruleProviderUpdateHours: number;
+  coreRestartHours: number;
   dnsPort: number;
   dnsNameserver: string;
   proxyMode: 'off' | 'tun' | 'redir';

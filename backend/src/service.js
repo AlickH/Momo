@@ -46,6 +46,10 @@ class MomoService {
     });
     this.profileUpdateTimer = null;
     this.profileUpdateRunning = false;
+    this.maintenanceTimer = null;
+    this.lastProviderUpdate = 0;
+    this.lastRuleProviderUpdate = 0;
+    this.lastCoreRestart = 0;
     this.core.on('state', (state) => {
       this.telegram.notifyCoreState(state);
       if (state.state === 'running' && this.core.controller) {
@@ -76,6 +80,43 @@ class MomoService {
     }, 10 * 60 * 1000);
     this.profileUpdateTimer.unref();
     setTimeout(() => { void this.runScheduledProfileUpdates(); }, 2 * 60 * 1000).unref();
+    this.lastProviderUpdate = Date.now();
+    this.lastRuleProviderUpdate = Date.now();
+    this.lastCoreRestart = Date.now();
+    this.maintenanceTimer = setInterval(() => { void this.runScheduledMaintenance(); }, 5 * 60 * 1000);
+    this.maintenanceTimer.unref();
+  }
+
+  async runScheduledMaintenance() {
+    const settings = this.settings.get();
+    const now = Date.now();
+    if (settings.providerUpdateHours && now - this.lastProviderUpdate >= settings.providerUpdateHours * 3600 * 1000) {
+      this.lastProviderUpdate = now;
+      try {
+        await this.updateAllProviders();
+        this.logger.info('app', '定时更新全部 provider 完成');
+      } catch (error) {
+        this.logger.warn('app', `定时更新 provider 失败：${error.message}`);
+      }
+    }
+    if (settings.ruleProviderUpdateHours && now - this.lastRuleProviderUpdate >= settings.ruleProviderUpdateHours * 3600 * 1000) {
+      this.lastRuleProviderUpdate = now;
+      try {
+        await this.updateAllRuleProviders();
+        this.logger.info('app', '定时更新全部规则集完成');
+      } catch (error) {
+        this.logger.warn('app', `定时更新规则集失败：${error.message}`);
+      }
+    }
+    if (settings.coreRestartHours && now - this.lastCoreRestart >= settings.coreRestartHours * 3600 * 1000) {
+      this.lastCoreRestart = now;
+      try {
+        await this.core.restart();
+        this.logger.info('app', '定时重启内核完成');
+      } catch (error) {
+        this.logger.warn('app', `定时重启内核失败：${error.message}`);
+      }
+    }
   }
 
   async runScheduledProfileUpdates() {
@@ -791,6 +832,7 @@ class MomoService {
     this.ddns.stop();
     this.stats.detach();
     if (this.profileUpdateTimer) clearInterval(this.profileUpdateTimer);
+    if (this.maintenanceTimer) clearInterval(this.maintenanceTimer);
     await this.transparent.clear();
   }
 }

@@ -12,6 +12,9 @@ const DEFAULTS = Object.freeze({
   unifiedDelay: true,
   tcpConcurrent: true,
   subscriptionUpdateHours: 0,
+  providerUpdateHours: 0,
+  ruleProviderUpdateHours: 0,
+  coreRestartHours: 0,
   dnsPort: 1053,
   dnsNameserver: '',
   proxyMode: 'off',
@@ -75,6 +78,13 @@ function validateSettings(input) {
     if (input[key] !== undefined) {
       if (typeof input[key] !== 'boolean') errors.push(`${key} 必须是布尔值`);
       else result[key] = input[key];
+    }
+  }
+  for (const key of ['providerUpdateHours', 'ruleProviderUpdateHours', 'coreRestartHours']) {
+    if (input[key] !== undefined) {
+      const hours = Number(input[key]);
+      if (!Number.isInteger(hours) || hours < 0 || hours > 168) errors.push(`${key} 必须在 0 到 168 小时之间`);
+      else result[key] = hours;
     }
   }
   if (input.subscriptionUpdateHours !== undefined) {
