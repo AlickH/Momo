@@ -28,6 +28,14 @@ const DEFAULTS = Object.freeze({
   telegramToken: '',
   telegramChatId: '',
   telegramNotify: true,
+  ddnsEnabled: false,
+  ddnsProvider: 'url',
+  ddnsDomain: '',
+  ddnsZone: '',
+  ddnsToken: '',
+  ddnsUrl: '',
+  ddnsRecordType: 'A',
+  ddnsIntervalMinutes: 5,
 });
 
 const TUN_STACKS = new Set(['gvisor', 'system', 'mixed']);
@@ -109,6 +117,39 @@ function validateSettings(input) {
       if (typeof input[key] !== 'boolean') errors.push(`${key} 必须是布尔值`);
       else result[key] = input[key];
     }
+  }
+  if (input.ddnsEnabled !== undefined) {
+    if (typeof input.ddnsEnabled !== 'boolean') errors.push('ddnsEnabled 必须是布尔值');
+    else result.ddnsEnabled = input.ddnsEnabled;
+  }
+  if (input.ddnsProvider !== undefined) {
+    if (!['url', 'cloudflare'].includes(input.ddnsProvider)) errors.push('DDNS Provider 必须是 url 或 cloudflare');
+    else result.ddnsProvider = input.ddnsProvider;
+  }
+  if (input.ddnsDomain !== undefined) {
+    if (typeof input.ddnsDomain !== 'string' || input.ddnsDomain.length > 255) errors.push('DDNS 域名无效');
+    else result.ddnsDomain = input.ddnsDomain.trim();
+  }
+  if (input.ddnsZone !== undefined) {
+    if (typeof input.ddnsZone !== 'string' || input.ddnsZone.length > 255) errors.push('DDNS Zone 无效');
+    else result.ddnsZone = input.ddnsZone.trim();
+  }
+  if (input.ddnsToken !== undefined) {
+    if (typeof input.ddnsToken !== 'string' || input.ddnsToken.length > 512) errors.push('DDNS Token 无效');
+    else result.ddnsToken = input.ddnsToken.trim();
+  }
+  if (input.ddnsUrl !== undefined) {
+    if (typeof input.ddnsUrl !== 'string' || input.ddnsUrl.length > 2048) errors.push('DDNS URL 无效');
+    else result.ddnsUrl = input.ddnsUrl.trim();
+  }
+  if (input.ddnsRecordType !== undefined) {
+    if (!['A', 'AAAA'].includes(input.ddnsRecordType)) errors.push('DDNS 记录类型必须是 A 或 AAAA');
+    else result.ddnsRecordType = input.ddnsRecordType;
+  }
+  if (input.ddnsIntervalMinutes !== undefined) {
+    const minutes = Number(input.ddnsIntervalMinutes);
+    if (!Number.isInteger(minutes) || minutes < 1 || minutes > 1440) errors.push('DDNS 更新间隔必须在 1 到 1440 分钟之间');
+    else result.ddnsIntervalMinutes = minutes;
   }
   if (input.telegramEnabled !== undefined) {
     if (typeof input.telegramEnabled !== 'boolean') errors.push('telegramEnabled 必须是布尔值');

@@ -25,6 +25,7 @@ import {
   Zap,
   Server,
   Send,
+  Globe,
 } from 'lucide-react';
 import { useApp, type ThemeMode } from '../context/AppContext';
 import { api } from '../lib/api';
@@ -32,7 +33,8 @@ import { useToast } from '../context/ToastContext';
 import { formatBytes, formatUptime } from '../lib/format';
 import { Badge, Button, Card, ConfirmDialog, CopyButton, Segmented, Switch } from '../components/ui';
 import { useNow } from '../hooks/useNow';
-import type { LogLevel, Mode, Settings } from '../types';
+import { usePolling } from '../hooks/usePolling';
+import type { DdnsStatus, LogLevel, Mode, Settings } from '../types';
 
 const LOG_LEVELS: { value: LogLevel; label: string }[] = [
   { value: 'debug', label: '调试' },
@@ -69,6 +71,8 @@ export function SettingsPage() {
   const [confirmStop, setConfirmStop] = useState(false);
   const [backupBusy, setBackupBusy] = useState(false);
   const [telegramTesting, setTelegramTesting] = useState(false);
+  const [ddnsBusy, setDdnsBusy] = useState(false);
+  const ddns = usePolling<DdnsStatus>(() => api.get('ddns/status'), 10000);
   const [restoreBusy, setRestoreBusy] = useState(false);
   const [pendingRestore, setPendingRestore] = useState<Record<string, unknown> | null>(null);
 
@@ -254,6 +258,109 @@ export function SettingsPage() {
               <span className="truncate">客户端代理地址</span>
               <span className="mono truncate text-ink/80">{clientAddress}</span>
               <CopyButton text={clientAddress} label="复制" />
+            </div>
+          </Card>
+
+          <Card>
+            <div className="flex items-center gap-2 border-b border-line/8 pb-3">
+              <Globe className="h-4 w-4 text-accent" />
+              <h3 className="text-sm font-semibold text-ink">DDNS</h3>
+              {ddns.data?.lastIp ? <Badge tone="success">{ddns.data.lastIp}</Badge> : null}
+            </div>
+            <div className="pt-1">
+              <SettingRow title="启用 DDNS" description="定时把公网 IP 更新到自定义 URL 或 Cloudflare DNS。">
+                <Switch checked={form.ddnsEnabled} onChange={(value) => setForm((prev) => ({ ...prev, ddnsEnabled: value }))} label="启用 DDNS" />
+              </SettingRow>
+              <SettingRow title="Provider" description="URL 方式适合支持 {ip} 模板的服务；Cloudflare 需要 Zone 和 API Token。">
+                <select
+                  value={form.ddnsProvider}
+                  onChange={(event) => setForm((prev) => ({ ...prev, ddnsProvider: event.target.value as Settings['ddnsProvider'] }))}
+                  className="focus-ring h-9 rounded-lg border border-line/10 bg-surface2 px-2.5 text-xs text-ink"
+                >
+                  <option value="url">自定义 URL</option>
+                  <option value="cloudflare">Cloudflare</option>
+                </select>
+              </SettingRow>
+              <SettingRow title="记录类型" description="A 对应 IPv4，AAAA 对应 IPv6。">
+                <select
+                  value={form.ddnsRecordType}
+                  onChange={(event) => setForm((prev) => ({ ...prev, ddnsRecordType: event.target.value as Settings['ddnsRecordType'] }))}
+                  className="focus-ring h-9 rounded-lg border border-line/10 bg-surface2 px-2.5 text-xs text-ink"
+                >
+                  <option value="A">A（IPv4）</option>
+                  <option value="AAAA">AAAA（IPv6）</option>
+                </select>
+              </SettingRow>
+              <SettingRow title="更新间隔" description="单位分钟，1 到 1440。">
+                <input
+                  type="number"
+                  min={1}
+                  max={1440}
+                  value={form.ddnsIntervalMinutes}
+                  onChange={(event) => setForm((prev) => ({ ...prev, ddnsIntervalMinutes: Number(event.target.value) }))}
+                  className="focus-ring h-9 w-24 rounded-lg border border-line/10 bg-surface2 px-2.5 text-right text-sm text-ink tabular"
+                />
+              </SettingRow>
+              {form.ddnsProvider === 'url' ? (
+                <SettingRow title="更新 URL" description="必须包含 {ip} 占位符，GET 请求更新。">
+                  <input
+                    value={form.ddnsUrl}
+                    onChange={(event) => setForm((prev) => ({ ...prev, ddnsUrl: event.target.value }))}
+                    placeholder="https://example.com/ddns?ip={ip}"
+                    className="focus-ring h-9 w-[300px] max-w-full rounded-lg border border-line/10 bg-surface2 px-2.5 text-xs text-ink placeholder:text-muted/50"
+                  />
+                </SettingRow>
+              ) : (
+                <>
+                  <SettingRow title="域名" description="要更新的完整记录名，例如 home.example.com。">
+                    <input
+                      value={form.ddnsDomain}
+                      onChange={(event) => setForm((prev) => ({ ...prev, ddnsDomain: event.target.value }))}
+                      placeholder="home.example.com"
+                      className="focus-ring h-9 w-[240px] max-w-full rounded-lg border border-line/10 bg-surface2 px-2.5 text-xs text-ink placeholder:text-muted/50"
+                    />
+                  </SettingRow>
+                  <SettingRow title="Zone" description="根域名，例如 example.com。">
+                    <input
+                      value={form.ddnsZone}
+                      onChange={(event) => setForm((prev) => ({ ...prev, ddnsZone: event.target.value }))}
+                      placeholder="example.com"
+                      className="focus-ring h-9 w-[220px] max-w-full rounded-lg border border-line/10 bg-surface2 px-2.5 text-xs text-ink placeholder:text-muted/50"
+                    />
+                  </SettingRow>
+                  <SettingRow title="API Token" description="Cloudflare Token，需要有 Zone.DNS 编辑权限。">
+                    <input
+                      type="password"
+                      value={form.ddnsToken}
+                      onChange={(event) => setForm((prev) => ({ ...prev, ddnsToken: event.target.value }))}
+                      className="focus-ring h-9 w-[280px] max-w-full rounded-lg border border-line/10 bg-surface2 px-2.5 text-xs text-ink"
+                    />
+                  </SettingRow>
+                </>
+              )}
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  loading={ddnsBusy}
+                  onClick={async () => {
+                    setDdnsBusy(true);
+                    try {
+                      const result = await api.post<DdnsStatus>('ddns/update', undefined, { timeoutMs: 60000 });
+                      await ddns.refresh();
+                      toast(result.lastError || result.lastMessage || 'DDNS 已更新', result.lastError ? 'error' : 'success');
+                    } catch (error) {
+                      toast(error instanceof Error ? error.message : 'DDNS 更新失败', 'error');
+                    } finally {
+                      setDdnsBusy(false);
+                    }
+                  }}
+                >
+                  立即更新
+                </Button>
+                {ddns.data?.lastUpdatedAt ? <span className="text-[10px] text-muted/60">上次更新 {new Date(ddns.data.lastUpdatedAt).toLocaleString('zh-CN', { hour12: false })}</span> : null}
+                {ddns.data?.lastError ? <span className="text-[10px] text-danger">{ddns.data.lastError}</span> : null}
+              </div>
             </div>
           </Card>
 

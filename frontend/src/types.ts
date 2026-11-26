@@ -38,6 +38,14 @@ export interface Settings {
   telegramToken: string;
   telegramChatId: string;
   telegramNotify: boolean;
+  ddnsEnabled: boolean;
+  ddnsProvider: 'url' | 'cloudflare';
+  ddnsDomain: string;
+  ddnsZone: string;
+  ddnsToken: string;
+  ddnsUrl: string;
+  ddnsRecordType: 'A' | 'AAAA';
+  ddnsIntervalMinutes: number;
 }
 
 export interface SubscriptionInfo {
@@ -136,6 +144,17 @@ export interface Provider {
   count: number;
   updatedAt: string | null;
   subscriptionInfo: SubscriptionInfo | null;
+}
+
+export interface DdnsStatus {
+  enabled: boolean;
+  provider: string;
+  domain: string;
+  lastIp: string;
+  lastUpdatedAt: string | null;
+  lastError: string | null;
+  lastMessage: string;
+  running: boolean;
 }
 
 export interface RuleProvider {

@@ -28,6 +28,14 @@ test('validateSettings applies defaults and rejects invalid values', () => {
     telegramToken: '',
     telegramChatId: '',
     telegramNotify: true,
+    ddnsEnabled: false,
+    ddnsProvider: 'url',
+    ddnsDomain: '',
+    ddnsZone: '',
+    ddnsToken: '',
+    ddnsUrl: '',
+    ddnsRecordType: 'A',
+    ddnsIntervalMinutes: 5,
   });
   assert.equal(validateSettings({ mixedPort: 1080 }).mixedPort, 1080);
   assert.throws(() => validateSettings({ mixedPort: 80 }), /端口/);
