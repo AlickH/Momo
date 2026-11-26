@@ -554,15 +554,6 @@ class MomoService {
       if (!provider || provider.vehicleType === 'Compatible') continue;
       for (const proxy of provider.proxies || []) providerNodes.add(proxy.name);
     }
-    const groupsByNode = new Map();
-    for (const [groupName, groupNode] of Object.entries(proxyData.proxies || {})) {
-      if (!Array.isArray(groupNode?.all)) continue;
-      for (const member of groupNode.all) {
-        if (!groupsByNode.has(member)) groupsByNode.set(member, []);
-        groupsByNode.get(member).push(groupName);
-      }
-    }
-
     const results = {};
     const testUrl = target.toString();
     const inlineNames = [];
@@ -588,37 +579,25 @@ class MomoService {
     });
     await Promise.all(workers);
 
-    const groupNames = new Set();
-    for (const name of providerTargets) {
-      for (const group of groupsByNode.get(name) || []) groupNames.add(group);
+    const providerByNode = new Map();
+    for (const [providerName, provider] of Object.entries(providerData.providers || {})) {
+      if (!provider || provider.vehicleType === 'Compatible') continue;
+      for (const proxy of provider.proxies || []) providerByNode.set(proxy.name, providerName);
     }
-    const groupResults = new Map();
-    let groupCursor = 0;
-    const groupList = [...groupNames];
-    const groupWorkers = Array.from({ length: Math.min(3, groupList.length) }, async () => {
-      while (groupCursor < groupList.length) {
-        const groupName = groupList[groupCursor++];
+    let providerCursor = 0;
+    const providerWorkers = Array.from({ length: Math.min(DELAY_CONCURRENCY, providerTargets.length) }, async () => {
+      while (providerCursor < providerTargets.length) {
+        const name = providerTargets[providerCursor++];
         try {
-          groupResults.set(groupName, await controller.groupDelay(groupName, testUrl, delayTimeout));
+          const result = await controller.providerProxyDelay(providerByNode.get(name), name, testUrl, delayTimeout);
+          const delay = Number(result?.delay);
+          results[name] = Number.isFinite(delay) && delay > 0 && delay < delayTimeout ? delay : -1;
         } catch {
-          groupResults.set(groupName, null);
+          results[name] = -1;
         }
       }
     });
-    await Promise.all(groupWorkers);
-
-    for (const name of providerTargets) {
-      let value = -1;
-      for (const groupName of groupsByNode.get(name) || []) {
-        const map = groupResults.get(groupName);
-        const delay = Number(map?.[name]);
-        if (Number.isFinite(delay) && delay > 0 && delay < Math.min(delayTimeout, 3000)) {
-          value = delay;
-          break;
-        }
-      }
-      results[name] = value;
-    }
+    await Promise.all(providerWorkers);
 
     return { results };
   }

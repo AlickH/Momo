@@ -19,7 +19,7 @@ import { Badge, Button, Card, EmptyState, SearchInput, Skeleton } from '../compo
 import { DelayBadge } from '../components/DelayBadge';
 import type { ProxiesData, Provider, ProxyGroup } from '../types';
 
-const DEFAULT_TEST_URL = 'https://www.gstatic.com/generate_204';
+const DEFAULT_TEST_URL = 'http://www.gstatic.com/generate_204';
 const CHUNK_SIZE = 200;
 const BUILTIN_PROXIES = new Set(['DIRECT', 'REJECT', 'REJECT-DROP', 'PASS', 'PASS-RULE', 'COMPATIBLE', 'GLOBAL']);
 

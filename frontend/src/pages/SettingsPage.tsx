@@ -264,7 +264,7 @@ export function SettingsPage() {
                 <input
                   value={form.testUrl}
                   onChange={(event) => setForm((prev) => ({ ...prev, testUrl: event.target.value }))}
-                  placeholder="https://www.gstatic.com/generate_204"
+                  placeholder="http://www.gstatic.com/generate_204"
                   className="focus-ring h-9 w-[280px] max-w-full rounded-lg border border-line/10 bg-surface2 px-2.5 text-xs text-ink placeholder:text-muted/50"
                 />
               </SettingRow>

@@ -15,7 +15,7 @@ const DEFAULTS = Object.freeze({
   dnsNameserver: '',
   proxyMode: 'off',
   redirPort: 7892,
-  testUrl: 'https://www.gstatic.com/generate_204',
+  testUrl: 'http://www.gstatic.com/generate_204',
   testTimeout: 5000,
   tunStack: 'gvisor',
   tunAutoRoute: true,
