@@ -23,6 +23,7 @@ Momo 以 fnOS Native 进程方式运行：Node.js 后端托管 mihomo、管理�
 - **配置编辑**：代理端口、局域网访问、IPv6、模式、日志级别、统一延迟、TCP 并发、DNS 监听端口/上游。
 - **透明代理**：TUN（gVisor/System/Mixed、自动路由、DNS 劫持）和 Redir（nftables 接管本机 TCP + DNS）两种模式，默认关闭。
 - **外部控制器**：可选把 mihomo 控制器绑定到 `0.0.0.0:<port>`，供 zashboard 等 Clash 面板连接；默认关闭，需手动开启并设置密钥。
+- **zashboard 面板能力**：规则集更新、订阅流量（provider subscription-info）、Smart 权重。
 - **备份恢复**：导出包含设置和全部订阅内容的 JSON 备份，可在重装后恢复。
 - **原生外观**：200px 侧边栏、悬浮圆角内容面板、Ant Design 风格配色，自动跟随 fnOS 明暗主题。
 - **权限分层**：应用主进程以 root 管理网络，mihomo 子进程降权到专用 `momo` 用户；控制器默认只监听 `127.0.0.1`，面板仅管理员可访问。
@@ -76,8 +77,8 @@ Node.js 后端（Express）
 - 飞牛 fnOS `>= 1.1.3100`（统一网关）
 - 商店依赖 `nodejs_v24`（manifest 中已声明，安装时自动处理）
 - 按设备架构选择 FPK：
-  - x86 设备：`dist/momo_1.0.23_x86.fpk`
-  - ARM 设备：`dist/momo_1.0.23_arm.fpk`
+  - x86 设备：`dist/momo_1.0.24_x86.fpk`
+  - ARM 设备：`dist/momo_1.0.24_arm.fpk`
 
 安装步骤：
 
@@ -118,8 +119,8 @@ node scripts/build.mjs --arch=x86
 产物：
 
 ```text
-dist/momo_1.0.23_x86.fpk
-dist/momo_1.0.23_arm.fpk
+dist/momo_1.0.24_x86.fpk
+dist/momo_1.0.24_arm.fpk
 dist/SHA256SUMS
 ```
 

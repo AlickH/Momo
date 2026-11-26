@@ -22,7 +22,7 @@ import { useToast } from '../context/ToastContext';
 import { formatBytes, formatDate, formatExpiry, percent, timeAgo } from '../lib/format';
 import { Badge, Button, Card, ConfirmDialog, CopyButton, EmptyState, Modal, ProgressBar, Skeleton } from '../components/ui';
 import { cn } from '../lib/cn';
-import type { Profile } from '../types';
+import type { Profile, Provider } from '../types';
 
 type AddTab = 'url' | 'content';
 
@@ -57,6 +57,7 @@ export function ProfilesPage() {
   const { status, refreshStatus } = useApp();
   const { toast } = useToast();
   const profiles = usePolling<{ profiles: Profile[] }>(() => api.get('profiles'), 10000);
+  const providers = usePolling<{ providers: Provider[] }>(() => api.get('providers'), 15000);
   const [addOpen, setAddOpen] = useState(false);
   const [tab, setTab] = useState<AddTab>('url');
   const [name, setName] = useState('');
@@ -74,6 +75,11 @@ export function ProfilesPage() {
   const items = profiles.data?.profiles ?? [];
   const active = useMemo(() => items.find((item) => item.active) ?? status?.activeProfile ?? null, [items, status?.activeProfile]);
   const hasUrlProfiles = items.some((item) => item.source === 'url');
+  const trafficProviders = (providers.data?.providers ?? []).filter((provider) => (provider.subscriptionInfo?.total ?? 0) > 0);
+  const trafficTotal = trafficProviders.reduce((total, provider) => ({
+    used: total.used + (provider.subscriptionInfo?.upload ?? 0) + (provider.subscriptionInfo?.download ?? 0),
+    total: total.total + (provider.subscriptionInfo?.total ?? 0),
+  }), { used: 0, total: 0 });
 
   const resetForm = () => {
     setName('');
@@ -271,6 +277,43 @@ export function ProfilesPage() {
           </div>
         </div>
       )}
+
+      {trafficProviders.length > 0 ? (
+        <Card>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3 className="text-sm font-semibold text-ink">订阅流量</h3>
+              <p className="mt-0.5 text-[12px] text-muted">来自各 provider 的 subscription-info</p>
+            </div>
+            {trafficTotal.total > 0 ? (
+              <span className="text-[11px] text-muted">
+                已用 {formatBytes(trafficTotal.used)} / {formatBytes(trafficTotal.total)}
+              </span>
+            ) : null}
+          </div>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            {trafficProviders.map((provider) => {
+              const info = provider.subscriptionInfo!;
+              const used = info.upload + info.download;
+              const pct = percent(used, info.total);
+              const expiry = formatExpiry(info.expire);
+              return (
+                <div key={provider.name}>
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="truncate font-medium text-ink">{provider.name}</span>
+                    <span className="text-muted">{formatBytes(used)} / {formatBytes(info.total)}</span>
+                  </div>
+                  <ProgressBar value={pct} tone={pct > 90 ? 'danger' : pct > 70 ? 'warning' : 'accent'} className="mt-1.5" />
+                  <div className="mt-1.5 flex items-center justify-between text-[10px] text-muted/60">
+                    <span>{pct.toFixed(1)}%</span>
+                    <span className={expiry.expired ? 'text-danger' : ''}>{expiry.text}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      ) : null}
 
       <div className="flex items-center justify-between pt-1">
         <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">全部配置</h3>

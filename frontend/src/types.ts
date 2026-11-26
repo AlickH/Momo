@@ -134,6 +134,21 @@ export interface Provider {
   subscriptionInfo: SubscriptionInfo | null;
 }
 
+export interface RuleProvider {
+  name: string;
+  type: string;
+  behavior: string;
+  ruleCount: number;
+  updatedAt: string | null;
+  vehicleType: string;
+}
+
+export interface SmartWeight {
+  Name: string;
+  Rank: string;
+  Weight: number;
+}
+
 export interface Rule {
   index: number;
   type: string;

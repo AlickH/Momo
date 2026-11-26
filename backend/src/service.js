@@ -638,7 +638,12 @@ class MomoService {
         vehicleType: item.vehicleType || '',
         count: Array.isArray(item.proxies) ? item.proxies.length : 0,
         updatedAt: item.updatedAt && !String(item.updatedAt).startsWith('0001-') ? item.updatedAt : null,
-        subscriptionInfo: item.subscriptionInfo || null,
+        subscriptionInfo: item.subscriptionInfo ? {
+          upload: Number(item.subscriptionInfo.Upload) || 0,
+          download: Number(item.subscriptionInfo.Download) || 0,
+          total: Number(item.subscriptionInfo.Total) || 0,
+          expire: Number(item.subscriptionInfo.Expire) || 0,
+        } : null,
       }));
     return { providers };
   }
@@ -672,6 +677,46 @@ class MomoService {
   async getRules() {
     const data = await this.core.controllerOrThrow().rules();
     return { rules: Array.isArray(data.rules) ? data.rules : [] };
+  }
+
+  async getRuleProviders() {
+    const data = await this.core.controllerOrThrow().ruleProviders();
+    const providers = Object.entries(data.providers || {})
+      .filter(([, item]) => item.vehicleType !== 'Compatible')
+      .map(([name, item]) => ({
+        name,
+        type: item.type || 'Rule',
+        behavior: item.behavior || '',
+        ruleCount: item.ruleCount || 0,
+        updatedAt: item.updatedAt && !String(item.updatedAt).startsWith('0001-') ? item.updatedAt : null,
+        vehicleType: item.vehicleType || '',
+      }));
+    return { providers };
+  }
+
+  async updateRuleProvider(name) {
+    if (!name) throw badRequest('缺少规则集名称');
+    await this.core.controllerOrThrow().updateRuleProvider(name);
+    return { ok: true };
+  }
+
+  async updateAllRuleProviders() {
+    const { providers } = await this.getRuleProviders();
+    const updated = [];
+    for (const provider of providers) {
+      try {
+        await this.core.controllerOrThrow().updateRuleProvider(provider.name);
+        updated.push(provider.name);
+      } catch (error) {
+        this.logger.warn('rules', `更新规则集失败 ${provider.name}：${error.message}`);
+      }
+    }
+    return { updated };
+  }
+
+  async getSmartWeights() {
+    const data = await this.core.controllerOrThrow().smartWeights();
+    return { weights: data.weights || {} };
   }
 
   async getConnections() {

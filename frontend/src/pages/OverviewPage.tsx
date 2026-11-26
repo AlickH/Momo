@@ -25,7 +25,7 @@ import { useToast } from '../context/ToastContext';
 import { formatBytes, formatDate, formatExpiry, formatNumber, formatRate, formatUptime, percent, shortCoreVersion, timeAgo } from '../lib/format';
 import { TrafficChart } from '../components/TrafficChart';
 import { Badge, Button, Card, ConfirmDialog, ProgressBar, Skeleton, StatusDot } from '../components/ui';
-import type { LogEntry, ProxiesData } from '../types';
+import type { LogEntry, ProxiesData, SmartWeight } from '../types';
 
 const stateLabel: Record<string, string> = {
   running: '运行中',
@@ -96,6 +96,7 @@ export function OverviewPage() {
   const [confirmStop, setConfirmStop] = useState(false);
   const proxies = usePolling<ProxiesData>(() => api.get('proxies'), 5000);
   const logs = usePolling<{ logs: LogEntry[] }>(() => api.get('logs?since=0&limit=6'), 8000);
+  const smart = usePolling<{ weights: Record<string, SmartWeight[]> }>(() => api.get('smart/weights'), 10000);
   const core = status!.core;
   const settings = status!.settings;
   const profile = status!.activeProfile;
@@ -329,6 +330,33 @@ export function OverviewPage() {
               </div>
             )}
           </Card>
+
+          {Object.keys(smart.data?.weights ?? {}).length > 0 ? (
+            <Card>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold text-ink">Smart 权重</h3>
+                  <p className="mt-0.5 text-[12px] text-muted">smart 内核的节点评分</p>
+                </div>
+                <Badge tone="info">Smart</Badge>
+              </div>
+              <div className="mt-3 space-y-3">
+                {Object.entries(smart.data!.weights).slice(0, 3).map(([group, weights]) => (
+                  <div key={group}>
+                    <div className="truncate text-[11px] font-medium text-ink">{group}</div>
+                    <div className="mt-1 space-y-1">
+                      {(weights ?? []).slice(0, 3).map((weight) => (
+                        <div key={weight.Name} className="flex items-center justify-between gap-2 text-[10px]">
+                          <span className="truncate text-muted">{weight.Name}</span>
+                          <span className="shrink-0 mono text-muted/60">{weight.Rank} · {Number(weight.Weight).toFixed(2)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          ) : null}
 
           <Card>
             <div className="flex items-center justify-between">

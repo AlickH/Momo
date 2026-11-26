@@ -1,12 +1,14 @@
 import { useDeferredValue, useMemo, useState } from 'react';
-import { ArrowRight, ListFilter, RefreshCw, Route, SearchX } from 'lucide-react';
+import { ArrowRight, Database, ListFilter, RefreshCw, Route, SearchX } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
+import { useToast } from '../context/ToastContext';
 import { usePolling } from '../hooks/usePolling';
 import { api } from '../lib/api';
 import { Badge, Button, Card, EmptyState, SearchInput, Skeleton } from '../components/ui';
 import { cn } from '../lib/cn';
-import type { Rule } from '../types';
+import { formatDate } from '../lib/format';
+import type { Rule, RuleProvider } from '../types';
 
 const RULE_TONE: Record<string, 'accent' | 'info' | 'warning' | 'danger' | 'neutral'> = {
   Domain: 'accent',
@@ -42,10 +44,13 @@ const RULE_LABEL: Record<string, string> = {
 
 export function RulesPage() {
   const { status } = useApp();
+  const { toast } = useToast();
   const rules = usePolling<{ rules: Rule[] }>(() => api.get('rules'), 0);
+  const ruleProviders = usePolling<{ providers: RuleProvider[] }>(() => api.get('rule-providers'), 0);
   const [query, setQuery] = useState('');
   const deferred = useDeferredValue(query);
   const [limit, setLimit] = useState(300);
+  const [providerBusy, setProviderBusy] = useState<string | null>(null);
 
   const items = rules.data?.rules ?? [];
   const filtered = useMemo(() => {
@@ -60,6 +65,33 @@ export function RulesPage() {
   const visible = filtered.slice(0, limit);
   const hits = items.reduce((total, rule) => total + (rule.extra?.hitCount ?? 0), 0);
   const running = status?.core.state === 'running';
+  const providers = ruleProviders.data?.providers ?? [];
+
+  const updateProvider = async (name: string) => {
+    setProviderBusy(name);
+    try {
+      await api.post('rule-providers/update', { name }, { timeoutMs: 90000 });
+      await Promise.all([ruleProviders.refresh(), rules.refresh()]);
+      toast('规则集已更新', 'success');
+    } catch (error) {
+      toast(error instanceof Error ? error.message : '更新规则集失败', 'error');
+    } finally {
+      setProviderBusy(null);
+    }
+  };
+
+  const updateAllProviders = async () => {
+    setProviderBusy('__all__');
+    try {
+      await api.post('rule-providers/update-all', undefined, { timeoutMs: 300000 });
+      await Promise.all([ruleProviders.refresh(), rules.refresh()]);
+      toast('全部规则集已更新', 'success');
+    } catch (error) {
+      toast(error instanceof Error ? error.message : '更新规则集失败', 'error');
+    } finally {
+      setProviderBusy(null);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -137,6 +169,35 @@ export function RulesPage() {
               <div className="border-t border-line/8 p-3 text-center"><Button variant="secondary" size="sm" onClick={() => setLimit((value) => value + 300)}>显示更多（剩余 {filtered.length - visible.length}）</Button></div>
             ) : null}
           </>
+        )}
+      </Card>
+
+      <Card>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 className="flex items-center gap-2 text-sm font-semibold text-ink"><Database className="h-4 w-4 text-accent" />规则集</h3>
+            <p className="mt-0.5 text-[12px] text-muted">RULE-SET 引用的远程规则文件</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-muted">{providers.length} 个规则集</span>
+            <Button variant="ghost" size="sm" icon={<RefreshCw className="h-3.5 w-3.5" />} loading={providerBusy === '__all__'} disabled={!running || providers.length === 0} onClick={() => { void updateAllProviders(); }}>全部更新</Button>
+          </div>
+        </div>
+        {providers.length === 0 ? (
+          <p className="mt-4 rounded-xl border border-dashed border-line/10 px-4 py-6 text-center text-[12px] text-muted">当前配置没有规则集</p>
+        ) : (
+          <div className="mt-3 divide-y divide-line/5">
+            {providers.map((provider) => (
+              <div key={provider.name} className="flex items-center gap-3 py-2.5">
+                <Badge tone="neutral">{provider.behavior || provider.type}</Badge>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-[12px] text-ink">{provider.name}</div>
+                  <div className="mt-0.5 text-[10px] text-muted/60">{provider.ruleCount} 条 · {provider.updatedAt ? formatDate(provider.updatedAt) : '未更新'}</div>
+                </div>
+                <Button variant="ghost" size="sm" icon={<RefreshCw className="h-3 w-3" />} loading={providerBusy === provider.name} disabled={!running || Boolean(providerBusy)} onClick={() => { void updateProvider(provider.name); }}>更新</Button>
+              </div>
+            ))}
+          </div>
         )}
       </Card>
 

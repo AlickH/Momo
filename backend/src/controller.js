@@ -111,6 +111,18 @@ class ControllerClient {
     return this.request('GET', '/rules');
   }
 
+  async ruleProviders() {
+    return this.request('GET', '/providers/rules');
+  }
+
+  async updateRuleProvider(name) {
+    return this.request('PUT', `/providers/rules/${encodeURIComponent(name)}`, undefined, { timeoutMs: 60000 });
+  }
+
+  async smartWeights() {
+    return this.request('GET', '/group/weights');
+  }
+
   async connections() {
     return this.request('GET', '/connections', undefined, { timeoutMs: 5000 });
   }

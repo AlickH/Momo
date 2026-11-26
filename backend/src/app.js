@@ -158,6 +158,14 @@ function createApp({ env, service, logger }) {
   }));
 
   api.get('/rules', asyncRoute(async (req, res) => res.json(await service.getRules())));
+  api.get('/rule-providers', asyncRoute(async (req, res) => res.json(await service.getRuleProviders())));
+  api.post('/rule-providers/update', asyncRoute(async (req, res) => {
+    res.json(await service.updateRuleProvider(req.body?.name));
+  }));
+  api.post('/rule-providers/update-all', asyncRoute(async (req, res) => {
+    res.json(await service.updateAllRuleProviders());
+  }));
+  api.get('/smart/weights', asyncRoute(async (req, res) => res.json(await service.getSmartWeights())));
 
   api.get('/profiles', asyncRoute(async (req, res) => res.json({ profiles: await service.listProfiles() })));
   api.post('/profiles', asyncRoute(async (req, res) => {
