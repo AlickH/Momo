@@ -49,7 +49,7 @@ class MomoService {
   }
 
   async copyGeodata() {
-    const files = ['geoip.metadb', 'geosite.dat'];
+    const files = ['geoip.metadb', 'geosite.dat', 'Model.bin'];
     for (const name of files) {
       const source = path.join(this.env.geoSourceDir, name);
       const target = path.join(this.coreDir, name);
@@ -59,11 +59,11 @@ class MomoService {
         if (!targetStat || targetStat.size !== sourceStat.size) {
           await fs.copyFile(source, target);
           await fs.chmod(target, 0o644);
-          this.logger.info('app', `已准备地理数据库 ${name}`);
+          this.logger.info('app', `已准备内核数据 ${name}`);
         }
       } catch (error) {
         if (error.code === 'ENOENT') {
-          this.logger.warn('app', `缺少地理数据库 ${name}，GEOSITE/GEOIP 规则可能无法使用`);
+          this.logger.warn('app', `缺少内核数据 ${name}`);
         } else {
           throw error;
         }
@@ -280,6 +280,16 @@ class MomoService {
     return this.core.snapshot();
   }
 
+  async startCoreControl() {
+    if (!this.core.running) await this.core.start();
+    return this.core.snapshot();
+  }
+
+  async stopCoreControl() {
+    await this.core.stop();
+    return this.core.snapshot();
+  }
+
   async restartCore() {
     await this.core.restart();
     return this.core.snapshot();
@@ -290,25 +300,34 @@ class MomoService {
   }
 
   async getProxies() {
-    const data = await this.core.controllerOrThrow().proxies();
+    const controller = this.core.controllerOrThrow();
+    const [data, providerData] = await Promise.all([
+      controller.proxies(),
+      controller.providers().catch(() => ({ providers: {} })),
+    ]);
     const raw = data.proxies || {};
     const groups = [];
     const nodes = {};
-    for (const [name, item] of Object.entries(raw)) {
-      if (!item || typeof item !== 'object') continue;
-      const isGroup = Array.isArray(item.all);
+
+    const addNode = (name, item, provider = '') => {
+      if (!name || !item || typeof item !== 'object') return;
       const history = Array.isArray(item.history) ? item.history : [];
       const last = [...history].reverse().find((entry) => Number.isFinite(entry.delay));
-      const node = {
+      nodes[name] = {
         name,
         type: item.type || 'Unknown',
         udp: Boolean(item.udp),
         alive: item.alive !== false,
         delay: last ? last.delay : null,
         history: history.slice(-12),
+        ...(provider ? { provider } : {}),
       };
-      nodes[name] = node;
-      if (isGroup && name !== 'GLOBAL') {
+    };
+
+    for (const [name, item] of Object.entries(raw)) {
+      if (!item || typeof item !== 'object') continue;
+      addNode(name, item);
+      if (Array.isArray(item.all) && name !== 'GLOBAL') {
         groups.push({
           name,
           type: item.type || 'Selector',
@@ -320,6 +339,14 @@ class MomoService {
         });
       }
     }
+
+    for (const [providerName, provider] of Object.entries(providerData.providers || {})) {
+      if (!provider || provider.vehicleType === 'Compatible') continue;
+      for (const proxy of provider.proxies || []) {
+        addNode(proxy.name, proxy, providerName);
+      }
+    }
+
     if (groups.length === 0 && raw.GLOBAL && Array.isArray(raw.GLOBAL.all)) {
       groups.push({
         name: 'GLOBAL',
@@ -356,14 +383,32 @@ class MomoService {
     if (!['http:', 'https:'].includes(target.protocol)) throw badRequest('测速地址必须是 HTTP 或 HTTPS');
     const delayTimeout = Math.min(Math.max(Number(timeout) || 5000, 1000), 10000);
     const controller = this.core.controllerOrThrow();
+    const [proxyData, providerData] = await Promise.all([
+      controller.proxies(),
+      controller.providers().catch(() => ({ providers: {} })),
+    ]);
+    const proxyKeys = new Set(Object.keys(proxyData.proxies || {}));
+    const providerByNode = new Map();
+    for (const [providerName, provider] of Object.entries(providerData.providers || {})) {
+      if (!provider || provider.vehicleType === 'Compatible') continue;
+      const meta = { name: providerName, testUrl: provider.testUrl || '' };
+      for (const proxy of provider.proxies || []) providerByNode.set(proxy.name, meta);
+    }
+
     const results = {};
+    const testUrl = target.toString();
+    const inlineNames = [];
+    for (const name of names) {
+      if (proxyKeys.has(name)) inlineNames.push(name);
+      else if (!providerByNode.has(name)) results[name] = -1;
+    }
+
     let cursor = 0;
-    const workers = Array.from({ length: Math.min(DELAY_CONCURRENCY, names.length) }, async () => {
-      while (cursor < names.length) {
-        const index = cursor++;
-        const name = names[index];
+    const workers = Array.from({ length: Math.min(DELAY_CONCURRENCY, inlineNames.length) }, async () => {
+      while (cursor < inlineNames.length) {
+        const name = inlineNames[cursor++];
         try {
-          const result = await controller.proxyDelay(name, target.toString(), delayTimeout);
+          const result = await controller.proxyDelay(name, testUrl, delayTimeout);
           results[name] = Number.isFinite(result?.delay) ? result.delay : -1;
         } catch {
           results[name] = -1;
@@ -371,6 +416,59 @@ class MomoService {
       }
     });
     await Promise.all(workers);
+
+    const providerTargets = names.filter((name) => !proxyKeys.has(name) && providerByNode.has(name));
+    if (providerTargets.length) {
+      const recentThreshold = Date.now() - 60000;
+      const latestDelay = (providers, name) => {
+        const providerMeta = providerByNode.get(name);
+        const node = (providers.providers?.[providerMeta.name]?.proxies || []).find((proxy) => proxy.name === name);
+        const latest = [...(node?.history || [])].reverse().find((entry) => Number.isFinite(entry.delay));
+        if (!latest) return null;
+        const timestamp = Date.parse(latest.time);
+        return { delay: latest.delay, fresh: Number.isFinite(timestamp) && timestamp >= recentThreshold };
+      };
+
+      const pending = providerTargets.filter((name) => {
+        const providerMeta = providerByNode.get(name);
+        if (!providerMeta.testUrl) {
+          results[name] = -1;
+          return false;
+        }
+        const found = latestDelay(providerData, name);
+        if (found?.fresh) {
+          results[name] = found.delay;
+          return false;
+        }
+        return true;
+      });
+
+      if (pending.length) {
+        const providersToCheck = new Set(pending.map((name) => providerByNode.get(name).name));
+        await Promise.all([...providersToCheck].map((providerName) => (
+          controller.healthcheckProvider(providerName).catch(() => {})
+        )));
+        const deadline = Date.now() + 15000;
+        let latestProviders = providerData;
+        while (Date.now() < deadline) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          latestProviders = await controller.providers().catch(() => latestProviders);
+          const unresolved = pending.filter((name) => results[name] === undefined);
+          for (const name of unresolved) {
+            const found = latestDelay(latestProviders, name);
+            if (found?.fresh) results[name] = found.delay;
+          }
+          if (pending.every((name) => results[name] !== undefined)) break;
+        }
+        for (const name of pending) {
+          if (results[name] === undefined) {
+            const found = latestDelay(latestProviders, name);
+            results[name] = found ? found.delay : -1;
+          }
+        }
+      }
+    }
+
     return { results };
   }
 

@@ -10,9 +10,9 @@ const { findFreePort } = require('../src/util');
 
 function coreBinary() {
   const root = path.resolve(__dirname, '..', '..', 'vendor');
-  if (process.platform === 'darwin' && process.arch === 'arm64') return path.join(root, 'mihomo-darwin-arm64-v1.19.34');
-  if (process.platform === 'linux' && process.arch === 'x64') return path.join(root, 'mihomo-linux-amd64-compatible-v1.19.34');
-  if (process.platform === 'linux' && process.arch === 'arm64') return path.join(root, 'mihomo-linux-arm64-v1.19.34');
+  if (process.platform === 'darwin' && process.arch === 'arm64') return path.join(root, 'mihomo-darwin-arm64-alpha-smart-1348c4d');
+  if (process.platform === 'linux' && process.arch === 'x64') return path.join(root, 'mihomo-linux-amd64-compatible-alpha-smart-1348c4d');
+  if (process.platform === 'linux' && process.arch === 'arm64') return path.join(root, 'mihomo-linux-arm64-alpha-smart-1348c4d');
   return null;
 }
 
@@ -51,7 +51,7 @@ test('CoreManager starts a real mihomo process and exposes the controller', { ti
   try {
     await manager.start();
     assert.equal(manager.state, 'running');
-    assert.ok(manager.version && manager.version.startsWith('v'));
+    assert.ok(manager.version);
     const configs = await manager.controller.configs();
     assert.equal(configs.mode, 'rule');
     assert.ok(controllerPort > 0);

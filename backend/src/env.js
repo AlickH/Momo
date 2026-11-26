@@ -11,8 +11,8 @@ function resolveEnv(overrides = {}) {
     process.env.WEB_DIR ||
     (packaged ? path.join(appDir, 'web') : path.join(REPO_ROOT, 'frontend', 'dist'));
   const devCoreName = process.platform === 'darwin'
-    ? `mihomo-darwin-${process.arch === 'arm64' ? 'arm64' : 'amd64'}-v1.19.34`
-    : `mihomo-linux-${process.arch === 'arm64' ? 'arm64' : 'amd64-compatible'}-v1.19.34`;
+    ? `mihomo-darwin-${process.arch === 'arm64' ? 'arm64' : 'amd64'}-alpha-smart-1348c4d`
+    : `mihomo-linux-${process.arch === 'arm64' ? 'arm64' : 'amd64-compatible'}-alpha-smart-1348c4d`;
   const coreBin =
     overrides.coreBin ||
     process.env.MIHOMO_BIN ||

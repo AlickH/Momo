@@ -99,6 +99,7 @@ export interface ProxyNode {
   alive: boolean;
   delay: number | null;
   history: { time: string; delay: number }[];
+  provider?: string;
 }
 
 export interface ProxiesData {

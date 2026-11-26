@@ -41,7 +41,9 @@ export function Layout() {
                   ? `mihomo 未能运行：${status?.core.lastError || '请查看日志'}`
                   : coreState === 'restarting'
                     ? 'mihomo 正在重启，稍后自动恢复'
-                    : 'mihomo 正在启动'}
+                    : coreState === 'stopped'
+                      ? 'mihomo 已停止，可在概览或设置中重新启动'
+                      : 'mihomo 正在启动'}
             </span>
             <Button variant="ghost" size="sm" icon={<RefreshCw className="h-3 w-3" />} loading={retrying} onClick={retry} className="h-6 px-2 text-[11px]">刷新</Button>
           </div>

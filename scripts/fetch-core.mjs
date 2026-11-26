@@ -7,26 +7,27 @@ import { gunzipSync } from 'node:zlib';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const VENDOR = path.join(ROOT, 'vendor');
-const VERSION = '1.19.34';
+const BUILD = 'alpha-smart-1348c4d';
+const RELEASE = 'Prerelease-Alpha';
 
 const BINARIES = [
   {
-    name: `mihomo-darwin-arm64-v${VERSION}`,
-    url: `https://github.com/MetaCubeX/mihomo/releases/download/v${VERSION}/mihomo-darwin-arm64-v${VERSION}.gz`,
-    gzSha256: '1a7a20eca63fbbaec90137717465bfde488d0db2a3a79b8fadebf9b2545b6e4c',
-    sha256: 'a55a9073f9b7b1fa596a82c034d2dae3407ec34732102b6e42c5513ce3033f34',
+    name: `mihomo-darwin-arm64-${BUILD}`,
+    url: `https://github.com/vernesong/mihomo/releases/download/${RELEASE}/mihomo-darwin-arm64-${BUILD}.gz`,
+    gzSha256: '7b6640b583a25eb33e3c3581b59e59b421b99295b4f8531c1e18a95ec8b3d0be',
+    sha256: '09c79cfbe6e1d77b4da0b203391f179e4219b747588207bbdb0df692724550b4',
   },
   {
-    name: `mihomo-linux-amd64-compatible-v${VERSION}`,
-    url: `https://github.com/MetaCubeX/mihomo/releases/download/v${VERSION}/mihomo-linux-amd64-compatible-v${VERSION}.gz`,
-    gzSha256: '2763f5b414527f7baf6dc57e3f82f3ab561eedf34bfd7c2f2cde1f7e592efe06',
-    sha256: '5b6644c487e5dffae86b0e0e9bb5cec445579a3a9d03977c09576fee2aeefc01',
+    name: `mihomo-linux-amd64-compatible-${BUILD}`,
+    url: `https://github.com/vernesong/mihomo/releases/download/${RELEASE}/mihomo-linux-amd64-compatible-${BUILD}.gz`,
+    gzSha256: '766747fdbab1dad40f9a8f22dee6a89cf6ebcd50c35b0e31659d174c9e3f5aaf',
+    sha256: 'bf90fc608749991a00be389d62cc083485b02f659d558af10f81a9b42ed74765',
   },
   {
-    name: `mihomo-linux-arm64-v${VERSION}`,
-    url: `https://github.com/MetaCubeX/mihomo/releases/download/v${VERSION}/mihomo-linux-arm64-v${VERSION}.gz`,
-    gzSha256: 'daaf78a6240a282cdfd75bcbf98fe321f6bd52765cc29e79f344191198f0b50f',
-    sha256: '022da41e03ce70641a2f50c485b4f69ade8f1c7aeeece2cf1ec45c614a029441',
+    name: `mihomo-linux-arm64-${BUILD}`,
+    url: `https://github.com/vernesong/mihomo/releases/download/${RELEASE}/mihomo-linux-arm64-${BUILD}.gz`,
+    gzSha256: 'dcad18c01c007ad0e1f74fc05f2a044689ecd0944d7ec838bed466f22922851b',
+    sha256: 'e013cef25adfbc9774c66fefb3a8cbf29f558bcb989e840aa3ae4f58684cd122',
   },
 ];
 
@@ -40,6 +41,11 @@ const GEO_FILES = [
     name: 'geosite.dat',
     url: 'https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geosite.dat',
     sha256: 'ae35a23f40a8e0486f0ed1723780ba6805a9f917a51ff30441eb2c41f688244c',
+  },
+  {
+    name: 'Model.bin',
+    url: 'https://github.com/vernesong/mihomo/releases/download/LightGBM-Model/Model.bin',
+    sha256: '23633022a815fb34e510befe1c176ba50af3ced48f08b172454f4cd6b8327788',
   },
 ];
 

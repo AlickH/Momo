@@ -16,7 +16,7 @@ Momo 以 fnOS Native 进程方式运行：Node.js 后端托管 mihomo、管理�
 
 ## 功能
 
-- **内核托管**：自动启动、停止、重启 mihomo，异常退出后按退避策略重启，日志写入应用数据目录。
+- **内核托管**：使用 vernesong/mihomo 的 **smart 内核**（含 LightGBM 模型）；支持启动、停止、重启，异常退出后按退避策略重启，日志写入应用数据目录。
 - **订阅管理**：支持订阅链接、粘贴 YAML、导入文件；自动识别 Base64 订阅、`subscription-userinfo` 流量与到期信息。
 - **代理选择**：策略组、节点延迟测速、节点切换、代理提供者更新与健康检查。
 - **实时观察**：流量曲线、连接列表、规则命中、内核日志，支持筛选与关闭连接。
@@ -44,7 +44,7 @@ Node.js 后端（Express）
 - 数据目录：`${TRIM_PKGVAR}`（通常是 `/vol1/@appdata/momo`）
 - 管理入口：`/app/momo`，仅管理员可见
 - 默认代理端口：`7890`（HTTP + SOCKS5 混合端口）
-- mihomo：`v1.19.34`
+- 内核：Mihomo Meta `alpha-smart-1348c4d`（[vernesong/mihomo](https://github.com/vernesong/mihomo) 的 smart 分支）
 
 ## 目录结构
 
@@ -59,7 +59,7 @@ Node.js 后端（Express）
 │   ├── app/ui/              桌面入口与图标
 │   └── wizard/              安装/卸载/配置向导
 ├── scripts/
-│   ├── fetch-core.mjs       下载并校验 mihomo / 地理数据库
+│   ├── fetch-core.mjs       下载并校验 smart 内核 / 模型 / 地理数据库
 │   ├── build.mjs            构建前端并产出 x86/arm FPK
 │   └── make-icons.py        生成应用图标
 ├── vendor/                  依赖二进制（不提交，按脚本下载）
@@ -73,15 +73,15 @@ Node.js 后端（Express）
 - 飞牛 fnOS `>= 1.1.3100`（统一网关）
 - 商店依赖 `nodejs_v24`（manifest 中已声明，安装时自动处理）
 - 按设备架构选择 FPK：
-  - x86 设备：`dist/momo_1.0.0_x86.fpk`
-  - ARM 设备：`dist/momo_1.0.0_arm.fpk`
+  - x86 设备：`dist/momo_1.0.3_x86.fpk`
+  - ARM 设备：`dist/momo_1.0.3_arm.fpk`
 
 安装步骤：
 
 1. 打开飞牛「应用中心」→ 左下角手动安装 → 选择对应架构的 `.fpk`。
 2. 安装完成后启动 Momo，在桌面或应用中心打开。
 3. 首次打开没有配置，进入「订阅」添加 Clash / mihomo 订阅链接，或直接粘贴 YAML。
-4. 启用配置后，在「设置」确认代理端口；局域网设备将代理地址设置为 `http://<NAS 地址>:7890`，HTTP 与 SOCKS5 共用该端口。
+4. 启用配置后，在「设置」确认代理端口；局域网设备将代理地址设置为 `http://<NAS 地址>:<端口>`（默认 7890），HTTP 与 SOCKS5 共用该端口。
 
 > 仓库中的 FPK 使用 `--nosign` 构建，仅用于本地安装测试。正式分发前需要导入飞牛开发者证书并重新构建，见下文「签名」。
 
@@ -91,7 +91,7 @@ Node.js 后端（Express）
 
 ```bash
 npm run install:all        # 安装前后端依赖
-npm run fetch:core         # 下载并校验 mihomo v1.19.34 与 geo 数据
+npm run fetch:core         # 下载并校验 smart 内核、LightGBM 模型与 geo 数据
 ```
 
 安装 `fnpack`（飞牛官方打包工具，1.3.3）：
@@ -115,15 +115,15 @@ node scripts/build.mjs --arch=x86
 产物：
 
 ```text
-dist/momo_1.0.0_x86.fpk
-dist/momo_1.0.0_arm.fpk
+dist/momo_1.0.3_x86.fpk
+dist/momo_1.0.3_arm.fpk
 dist/SHA256SUMS
 ```
 
 构建脚本会：
 
 1. 构建前端到 `frontend/dist`；
-2. 按架构准备 mihomo 与地理数据库；
+2. 按架构准备 smart 内核、LightGBM 模型与地理数据库；
 3. 组装 `packaging/`、后端源码与生产依赖；
 4. 调用 `fnpack build` 打包并校验内核/地理数据 SHA-256。
 
@@ -194,7 +194,7 @@ npm test
 | GET | `/status` | 内核、设置、当前配置、流量概览 |
 | GET/PATCH | `/settings` | 读取/更新设置（更新会重启内核） |
 | POST | `/core/mode` | 切换规则/全局/直连模式 |
-| POST | `/core/restart` `/core/reload` | 重启内核 / 热重载配置 |
+| POST | `/core/start` `/core/stop` `/core/restart` `/core/reload` | 启动 / 停止 / 重启内核 / 热重载配置 |
 | GET | `/traffic` `/connections` | 流量曲线 / 连接列表 |
 | GET | `/proxies` `/rules` `/providers` | 代理、规则、提供者 |
 | POST | `/proxies/select` `/proxies/delay` | 选择节点 / 延迟测速 |

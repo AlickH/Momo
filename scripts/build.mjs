@@ -9,19 +9,20 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const BUILD_DIR = path.join(ROOT, 'build');
 const DIST_DIR = path.join(ROOT, 'dist');
 const VENDOR_DIR = path.join(ROOT, 'vendor');
-const CORE_VERSION = '1.19.34';
+const CORE_BUILD = 'alpha-smart-1348c4d';
 const GEO_FILES = {
   'geoip.metadb': '2eb4749bec1e1b9c269a7997ae63ee0f673cf4288349c9ee73a4e369d4d2915a',
   'geosite.dat': 'ae35a23f40a8e0486f0ed1723780ba6805a9f917a51ff30441eb2c41f688244c',
+  'Model.bin': '23633022a815fb34e510befe1c176ba50af3ced48f08b172454f4cd6b8327788',
 };
 const CORE_FILES = {
   x86: {
-    file: `mihomo-linux-amd64-compatible-v${CORE_VERSION}`,
-    sha256: '5b6644c487e5dffae86b0e0e9bb5cec445579a3a9d03977c09576fee2aeefc01',
+    file: `mihomo-linux-amd64-compatible-${CORE_BUILD}`,
+    sha256: 'bf90fc608749991a00be389d62cc083485b02f659d558af10f81a9b42ed74765',
   },
   arm: {
-    file: `mihomo-linux-arm64-v${CORE_VERSION}`,
-    sha256: '022da41e03ce70641a2f50c485b4f69ade8f1c7aeeece2cf1ec45c614a029441',
+    file: `mihomo-linux-arm64-${CORE_BUILD}`,
+    sha256: 'e013cef25adfbc9774c66fefb3a8cbf29f558bcb989e840aa3ae4f58684cd122',
   },
 };
 

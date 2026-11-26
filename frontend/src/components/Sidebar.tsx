@@ -1,10 +1,10 @@
 import { NavLink } from 'react-router-dom';
 import { Monitor, Moon, Sun, X } from 'lucide-react';
-import { Logo } from './Logo';
 import { NAV_ITEMS } from '../lib/nav';
 import { cn } from '../lib/cn';
 import { useApp } from '../context/AppContext';
 import { StatusDot } from './ui';
+import { shortCoreVersion } from '../lib/format';
 
 const stateLabel: Record<string, string> = {
   running: '运行中',
@@ -44,18 +44,13 @@ export function Sidebar({ mobileOpen, onCloseMobile }: { mobileOpen: boolean; on
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
-        <div className="flex h-[56px] shrink-0 items-center gap-2.5 px-4">
-          <Logo size={26} />
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-[16px] font-semibold leading-tight text-ink">Momo</div>
-            <div className="truncate text-[11px] leading-tight text-muted">mihomo 代理</div>
-          </div>
-          <button type="button" onClick={onCloseMobile} className="rounded p-1.5 text-muted hover:bg-surface2 hover:text-ink lg:hidden" aria-label="关闭菜单">
+        <div className="flex h-10 shrink-0 items-center justify-end px-2 pt-2 lg:hidden">
+          <button type="button" onClick={onCloseMobile} className="rounded p-1.5 text-muted hover:bg-surface2 hover:text-ink" aria-label="关闭菜单">
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <nav className="flex-1 overflow-y-auto px-2 pt-1 no-scrollbar">
+        <nav className="flex-1 overflow-y-auto px-2 pt-2 no-scrollbar">
           <div className="space-y-0.5">
             {NAV_ITEMS.map((item) => {
               const Icon = item.icon;
@@ -79,7 +74,7 @@ export function Sidebar({ mobileOpen, onCloseMobile }: { mobileOpen: boolean; on
           <div className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-[12px] text-muted">
             <StatusDot tone={tone} pulse={coreState === 'running'} />
             <span className="truncate">{stateLabel[coreState] ?? coreState}</span>
-            <span className="ml-auto font-mono text-[11px] text-muted/70">{status?.core.version ?? '—'}</span>
+            <span className="ml-auto max-w-[90px] truncate font-mono text-[10px] text-muted/70" title={status?.core.version ?? ''}>{shortCoreVersion(status?.core.version)}</span>
           </div>
           <button
             type="button"

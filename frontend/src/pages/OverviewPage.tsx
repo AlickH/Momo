@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowDownToLine,
@@ -8,8 +8,11 @@ import {
   Cpu,
   Layers,
   ListFilter,
+  Power,
   Radio,
   ServerCog,
+  Play,
+  RotateCcw,
   ShieldCheck,
   Timer,
   Waypoints,
@@ -18,9 +21,10 @@ import { useApp } from '../context/AppContext';
 import { usePolling } from '../hooks/usePolling';
 import { useNow } from '../hooks/useNow';
 import { api } from '../lib/api';
-import { formatBytes, formatDate, formatExpiry, formatNumber, formatRate, formatUptime, percent, timeAgo } from '../lib/format';
+import { useToast } from '../context/ToastContext';
+import { formatBytes, formatDate, formatExpiry, formatNumber, formatRate, formatUptime, percent, shortCoreVersion, timeAgo } from '../lib/format';
 import { TrafficChart } from '../components/TrafficChart';
-import { Badge, Button, Card, ProgressBar, Skeleton, StatusDot } from '../components/ui';
+import { Badge, Button, Card, ConfirmDialog, ProgressBar, Skeleton, StatusDot } from '../components/ui';
 import type { LogEntry, ProxiesData } from '../types';
 
 const stateLabel: Record<string, string> = {
@@ -78,7 +82,7 @@ function CoreRing({ state, version }: { state: string; version: string | null })
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <StatusDot tone={active ? 'success' : state === 'error' ? 'danger' : 'warning'} pulse={active || state === 'starting'} />
         <span className="mt-1.5 text-sm font-semibold text-ink">{stateLabel[state] ?? state}</span>
-        <span className="mt-0.5 mono text-[10px] text-muted">{version ?? 'mihomo'}</span>
+        <span className="mt-0.5 max-w-[96px] truncate mono text-[10px] text-muted" title={version ?? ''}>{version ? shortCoreVersion(version) : 'mihomo'}</span>
       </div>
     </div>
   );
@@ -86,7 +90,10 @@ function CoreRing({ state, version }: { state: string; version: string | null })
 
 export function OverviewPage() {
   const { status, traffic, refreshStatus } = useApp();
+  const { toast } = useToast();
   const now = useNow(1000);
+  const [coreBusy, setCoreBusy] = useState(false);
+  const [confirmStop, setConfirmStop] = useState(false);
   const proxies = usePolling<ProxiesData>(() => api.get('proxies'), 5000);
   const logs = usePolling<{ logs: LogEntry[] }>(() => api.get('logs?since=0&limit=6'), 8000);
   const core = status!.core;
@@ -104,6 +111,46 @@ export function OverviewPage() {
 
   const groups = proxies.data?.groups ?? [];
   const recentLogs = (logs.data?.logs ?? []).filter((entry) => entry.source === 'core').slice(-6);
+
+  const startCore = async () => {
+    setCoreBusy(true);
+    try {
+      await api.post('core/start', undefined, { timeoutMs: 90000 });
+      await refreshStatus();
+      toast('mihomo 内核已启动', 'success');
+    } catch (error) {
+      toast(error instanceof Error ? error.message : '启动失败', 'error');
+    } finally {
+      setCoreBusy(false);
+    }
+  };
+
+  const stopCore = async () => {
+    setCoreBusy(true);
+    try {
+      await api.post('core/stop', undefined, { timeoutMs: 60000 });
+      await refreshStatus();
+      setConfirmStop(false);
+      toast('mihomo 内核已停止', 'success');
+    } catch (error) {
+      toast(error instanceof Error ? error.message : '停止失败', 'error');
+    } finally {
+      setCoreBusy(false);
+    }
+  };
+
+  const restartCore = async () => {
+    setCoreBusy(true);
+    try {
+      await api.post('core/restart', undefined, { timeoutMs: 90000 });
+      await refreshStatus();
+      toast('mihomo 内核已重启', 'success');
+    } catch (error) {
+      toast(error instanceof Error ? error.message : '重启失败', 'error');
+    } finally {
+      setCoreBusy(false);
+    }
+  };
   const activeState = core.state;
   const running = activeState === 'running';
 
@@ -226,11 +273,18 @@ export function OverviewPage() {
                 <div className="mt-1 text-xs text-ink">{settings.allowLan ? '已允许' : '已关闭'}</div>
               </div>
             </div>
-            <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line/8 pt-3 text-[11px] text-muted">
-              <span className="flex items-center gap-1"><ListFilter className="h-3 w-3" /> {settings.mode === 'rule' ? '规则模式' : settings.mode === 'global' ? '全局模式' : '直连模式'}</span>
-              <span className="text-muted/30">·</span>
-              <span className="flex items-center gap-1"><ShieldCheck className="h-3 w-3" /> 仅管理员可管理</span>
+            <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line/8 pt-3">
+              {running ? (
+                <>
+                  <Button variant="danger" size="sm" icon={<Power className="h-3.5 w-3.5" />} loading={coreBusy} onClick={() => setConfirmStop(true)}>停止内核</Button>
+                  <Button variant="secondary" size="sm" icon={<RotateCcw className="h-3.5 w-3.5" />} disabled={coreBusy} onClick={() => { void restartCore(); }}>重启</Button>
+                </>
+              ) : (
+                <Button variant="primary" size="sm" icon={<Play className="h-3.5 w-3.5" />} loading={coreBusy} disabled={activeState === 'starting' || activeState === 'restarting'} onClick={() => { void startCore(); }}>启动内核</Button>
+              )}
+              <span className="ml-auto flex items-center gap-1 text-[11px] text-muted"><ListFilter className="h-3 w-3" /> {settings.mode === 'rule' ? '规则模式' : settings.mode === 'global' ? '全局模式' : '直连模式'}</span>
             </div>
+            <div className="mt-2 flex items-center gap-1 text-[11px] text-muted/60"><ShieldCheck className="h-3 w-3" /> 仅管理员可管理</div>
           </Card>
 
           <Card>
@@ -300,6 +354,17 @@ export function OverviewPage() {
         <span className="flex items-center gap-1.5"><Timer className="h-3 w-3" /> 数据每 2 秒刷新 · 内核 {core.version ?? '—'}</span>
         <span>最近更新 {formatDate(proxies.lastUpdated ?? Date.now())}</span>
       </div>
+
+      <ConfirmDialog
+        open={confirmStop}
+        title="停止内核"
+        message="停止后代理端口将不再监听，所有客户端会立即断开。配置和订阅不会丢失，可以随时重新启动。确定停止吗？"
+        confirmText="停止"
+        danger
+        pending={coreBusy}
+        onClose={() => { if (!coreBusy) setConfirmStop(false); }}
+        onConfirm={() => { void stopCore(); }}
+      />
     </div>
   );
 }

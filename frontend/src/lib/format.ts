@@ -25,6 +25,11 @@ export function formatDuration(input: number): string {
   return `${days} 天 ${hours % 24} 时`;
 }
 
+export function shortCoreVersion(version: string | null | undefined): string {
+  if (!version) return '—';
+  return version.replace(/-[0-9a-f]{7,}$/i, '');
+}
+
 export function formatUptime(startedAt: number | null, now = Date.now()): string {
   if (!startedAt) return '—';
   return formatDuration((now - startedAt) / 1000);

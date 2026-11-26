@@ -87,6 +87,12 @@ function createApp({ env, service, logger }) {
     const mode = req.body?.mode;
     res.json({ settings: await service.setMode(mode) });
   }));
+  api.post('/core/start', asyncRoute(async (req, res) => {
+    res.json({ core: await service.startCoreControl() });
+  }));
+  api.post('/core/stop', asyncRoute(async (req, res) => {
+    res.json({ core: await service.stopCoreControl() });
+  }));
   api.post('/core/restart', asyncRoute(async (req, res) => {
     res.json({ core: await service.restartCore() });
   }));

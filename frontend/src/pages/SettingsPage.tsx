@@ -7,6 +7,8 @@ import {
   Info,
   Link2,
   MonitorCog,
+  Play,
+  Power,
   RefreshCw,
   RotateCcw,
   Save,
@@ -53,8 +55,11 @@ export function SettingsPage() {
   const [form, setForm] = useState<Settings>(saved);
   const [saving, setSaving] = useState(false);
   const [restarting, setRestarting] = useState(false);
+  const [starting, setStarting] = useState(false);
+  const [stopping, setStopping] = useState(false);
   const [reloading, setReloading] = useState(false);
   const [confirmRestart, setConfirmRestart] = useState(false);
+  const [confirmStop, setConfirmStop] = useState(false);
 
   const savedKey = JSON.stringify(saved);
   const dirty = JSON.stringify(form) !== savedKey;
@@ -82,6 +87,33 @@ export function SettingsPage() {
       toast(error instanceof Error ? error.message : '保存设置失败', 'error');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const startCore = async () => {
+    setStarting(true);
+    try {
+      await api.post('core/start', undefined, { timeoutMs: 90000 });
+      await refreshStatus();
+      toast('mihomo 内核已启动', 'success');
+    } catch (error) {
+      toast(error instanceof Error ? error.message : '启动失败', 'error');
+    } finally {
+      setStarting(false);
+    }
+  };
+
+  const stopCore = async () => {
+    setStopping(true);
+    try {
+      await api.post('core/stop', undefined, { timeoutMs: 60000 });
+      await refreshStatus();
+      setConfirmStop(false);
+      toast('mihomo 内核已停止', 'success');
+    } catch (error) {
+      toast(error instanceof Error ? error.message : '停止失败', 'error');
+    } finally {
+      setStopping(false);
     }
   };
 
@@ -196,12 +228,19 @@ export function SettingsPage() {
               <h3 className="text-sm font-semibold text-ink">内核操作</h3>
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <Button variant="secondary" size="sm" icon={<RotateCcw className="h-3.5 w-3.5" />} loading={restarting} onClick={() => setConfirmRestart(true)}>{running ? '重启内核' : '启动内核'}</Button>
+              {running ? (
+                <>
+                  <Button variant="danger" size="sm" icon={<Power className="h-3.5 w-3.5" />} loading={stopping} onClick={() => setConfirmStop(true)}>停止内核</Button>
+                  <Button variant="secondary" size="sm" icon={<RotateCcw className="h-3.5 w-3.5" />} loading={restarting} onClick={() => setConfirmRestart(true)}>重启内核</Button>
+                </>
+              ) : (
+                <Button variant="primary" size="sm" icon={<Play className="h-3.5 w-3.5" />} loading={starting} onClick={() => { void startCore(); }}>启动内核</Button>
+              )}
               <Button variant="secondary" size="sm" icon={<RefreshCw className="h-3.5 w-3.5" />} loading={reloading} disabled={!running} onClick={() => { void reload(); }}>热重载配置</Button>
-              <span className="text-[11px] text-muted">重启会中断当前所有代理连接；热重载尽量保留连接。</span>
+              <span className="text-[11px] text-muted">{running ? '停止会断开所有代理连接；重启会重新加载配置。' : '内核停止时代理端口不监听。'}</span>
             </div>
             <div className="mt-4 grid grid-cols-2 gap-4 border-t border-line/8 pt-4 sm:grid-cols-4">
-              <div><div className="text-[10px] uppercase tracking-[0.12em] text-muted/60">状态</div><div className="mt-1 text-xs text-ink">{running ? '运行中' : status!.core.state}</div></div>
+              <div><div className="text-[10px] uppercase tracking-[0.12em] text-muted/60">状态</div><div className="mt-1 text-xs text-ink">{running ? '运行中' : status!.core.state === 'stopped' ? '已停止' : status!.core.state === 'error' ? '异常' : status!.core.state === 'starting' ? '启动中' : status!.core.state === 'stopping' ? '停止中' : '重启中'}</div></div>
               <div><div className="text-[10px] uppercase tracking-[0.12em] text-muted/60">版本</div><div className="mt-1 mono text-xs text-ink">{status!.core.version ?? '—'}</div></div>
               <div><div className="text-[10px] uppercase tracking-[0.12em] text-muted/60">运行时长</div><div className="mt-1 text-xs text-ink">{formatUptime(status!.core.startedAt, now)}</div></div>
               <div><div className="text-[10px] uppercase tracking-[0.12em] text-muted/60">内存</div><div className="mt-1 text-xs text-ink">{formatBytes(traffic?.memory ?? 0)}</div></div>
@@ -295,12 +334,23 @@ export function SettingsPage() {
 
       <ConfirmDialog
         open={confirmRestart}
-        title={running ? '重启内核' : '启动内核'}
+        title="重启内核"
         message="重启会立即中断所有正在使用的代理连接，客户端需要重新建立连接。确定继续吗？"
         confirmText="重启"
         pending={restarting}
         onClose={() => { if (!restarting) setConfirmRestart(false); }}
         onConfirm={() => { void restart(); }}
+      />
+
+      <ConfirmDialog
+        open={confirmStop}
+        title="停止内核"
+        message="停止后代理端口将不再监听，所有客户端会立即断开。配置和订阅不会丢失，可以随时重新启动。确定停止吗？"
+        confirmText="停止"
+        danger
+        pending={stopping}
+        onClose={() => { if (!stopping) setConfirmStop(false); }}
+        onConfirm={() => { void stopCore(); }}
       />
     </div>
   );

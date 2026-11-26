@@ -4,11 +4,12 @@ Momo 自身代码以 MIT 许可发布。分发包中包含以下第三方组件�
 
 ## mihomo
 
-- 组件：Mihomo Meta `v1.19.34`
+- 组件：Mihomo Meta `alpha-smart-1348c4d`（vernesong/mihomo smart 分支）
 - 用途：代理内核
 - 许可：GPL-3.0
-- 源码：https://github.com/MetaCubeX/mihomo/tree/v1.19.34
-- 说明：FPK 中 `app/core/mihomo` 为该版本的官方静态编译二进制。根据 GPL-3.0，分发二进制时应同时提供对应源码的获取方式。
+- 源码：https://github.com/vernesong/mihomo
+- 说明：FPK 中 `app/core/mihomo` 为该构建的静态编译二进制。根据 GPL-3.0，分发二进制时应同时提供对应源码的获取方式。该构建为预发布版本，升级前请先测试配置兼容性。
+- 附加数据：`app/core/Model.bin` 来自 vernesong/mihomo 的 `LightGBM-Model` release，用于 smart 组路由。
 
 ## GeoSite / GeoIP 数据
 
