@@ -98,6 +98,20 @@ function buildRuntimeConfig(profile, settings, { controllerPort, secret }) {
     },
   });
 
+  if (settings.tunEnabled) {
+    config.tun = {
+      ...(isPlainObject(config.tun) ? config.tun : {}),
+      enable: true,
+      stack: settings.tunStack,
+      device: 'momo0',
+      'auto-route': settings.tunAutoRoute,
+      'auto-detect-interface': settings.tunAutoRoute,
+      'dns-hijack': settings.tunDnsHijack ? ['any:53'] : [],
+    };
+  } else if (isPlainObject(config.tun)) {
+    config.tun = { ...config.tun, enable: false };
+  }
+
   if (isPlainObject(config.dns)) {
     const dns = { ...config.dns, listen: `0.0.0.0:${settings.dnsPort}` };
     if (settings.dnsNameserver) {

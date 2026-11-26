@@ -34,3 +34,7 @@ Momo 自身代码以 MIT 许可发布。分发包中包含以下第三方组件�
 
 - 文档：https://developer.fnnas.com/
 - 说明：应用的 manifest、生命周期、统一网关和桌面入口遵循飞牛 Native 应用规范。
+
+## Linux capabilities
+
+安装脚本会为 `app/core/mihomo` 设置 `cap_net_admin,cap_net_raw` 文件能力，以支持可选 TUN 模式。该能力允许进程管理网络接口与路由；不开启 TUN 时不会使用。

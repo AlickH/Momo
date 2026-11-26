@@ -1,5 +1,15 @@
 #!/bin/bash
 
 mkdir -p "${TRIM_PKGVAR}/logs"
-echo "$(date '+%Y-%m-%d %H:%M:%S') - Momo installed" >> "${TRIM_PKGVAR}/logs/server.out"
+LOG_FILE="${TRIM_PKGVAR}/logs/server.out"
+CORE="${TRIM_APPDEST}/core/mihomo"
+
+echo "$(date '+%Y-%m-%d %H:%M:%S') - Momo installed" >> "$LOG_FILE"
+if command -v setcap >/dev/null 2>&1; then
+  if setcap cap_net_admin,cap_net_raw+ep "$CORE" 2>>"$LOG_FILE"; then
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - TUN capabilities granted to core" >> "$LOG_FILE"
+  else
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - WARNING: failed to grant TUN capabilities" >> "$LOG_FILE"
+  fi
+fi
 exit 0

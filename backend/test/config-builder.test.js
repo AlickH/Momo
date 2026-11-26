@@ -31,6 +31,10 @@ const SETTINGS = {
   subscriptionUpdateHours: 0,
   dnsPort: 1053,
   dnsNameserver: '',
+  tunEnabled: false,
+  tunStack: 'gvisor',
+  tunAutoRoute: true,
+  tunDnsHijack: true,
 };
 
 test('parseProfile accepts a Clash style profile', () => {
@@ -77,6 +81,16 @@ test('buildRuntimeConfig applies configured DNS listen and nameservers', () => {
   const config = YAML.parse(buildRuntimeConfig(base, { ...SETTINGS, dnsPort: 1053, dnsNameserver: 'https://doh.pub/dns-query, 223.5.5.5' }, { controllerPort: 19090, secret: 'x' }));
   assert.equal(config.dns.listen, '0.0.0.0:1053');
   assert.deepEqual(config.dns.nameserver, ['https://doh.pub/dns-query', '223.5.5.5']);
+});
+
+test('buildRuntimeConfig enables and disables TUN from app settings', () => {
+  const enabled = YAML.parse(buildRuntimeConfig(null, { ...SETTINGS, tunEnabled: true, tunStack: 'system' }, { controllerPort: 19090, secret: 'x' }));
+  assert.equal(enabled.tun.enable, true);
+  assert.equal(enabled.tun.stack, 'system');
+  assert.deepEqual(enabled.tun['dns-hijack'], ['any:53']);
+
+  const disabled = YAML.parse(buildRuntimeConfig({ tun: { enable: true, stack: 'gvisor' } }, SETTINGS, { controllerPort: 19090, secret: 'x' }));
+  assert.equal(disabled.tun.enable, false);
 });
 
 test('buildRuntimeConfig supplies a minimal direct config when no profile exists', () => {

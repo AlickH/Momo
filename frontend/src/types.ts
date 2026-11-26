@@ -24,6 +24,10 @@ export interface Settings {
   subscriptionUpdateHours: number;
   dnsPort: number;
   dnsNameserver: string;
+  tunEnabled: boolean;
+  tunStack: 'gvisor' | 'system' | 'mixed';
+  tunAutoRoute: boolean;
+  tunDnsHijack: boolean;
 }
 
 export interface SubscriptionInfo {
@@ -75,6 +79,7 @@ export interface Status {
     packaged: boolean;
     platform: string;
     dataDir?: string;
+    tunCapable?: boolean;
   };
 }
 

@@ -1,6 +1,10 @@
 const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
+const { execFile } = require('node:child_process');
+const { promisify } = require('node:util');
+
+const execFileAsync = promisify(execFile);
 const { CoreManager } = require('./core');
 const { StatsMonitor } = require('./stats');
 const { ProfileManager, fetchSubscription } = require('./profiles');
@@ -47,6 +51,7 @@ class MomoService {
     await this.settings.load();
     await this.profiles.init();
     await this.copyGeodata();
+    await this.detectTunCapability();
     this.logger.info('app', `Momo ${this.env.version} 启动，数据目录 ${this.dataDir}`);
     this.profileUpdateTimer = setInterval(() => {
       void this.runScheduledProfileUpdates();
@@ -74,6 +79,15 @@ class MomoService {
       }
     } finally {
       this.profileUpdateRunning = false;
+    }
+  }
+
+  async detectTunCapability() {
+    try {
+      const { stdout } = await execFileAsync('getcap', [this.env.coreBin], { timeout: 3000 });
+      this.tunCapable = /cap_net_admin/.test(stdout);
+    } catch {
+      this.tunCapable = false;
     }
   }
 
@@ -167,6 +181,7 @@ class MomoService {
         packaged: this.env.packaged,
         platform: `${os.platform()} ${os.arch()}`,
         dataDir: this.dataDir,
+        tunCapable: Boolean(this.tunCapable),
       },
     };
   }

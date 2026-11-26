@@ -13,7 +13,13 @@ const DEFAULTS = Object.freeze({
   subscriptionUpdateHours: 0,
   dnsPort: 1053,
   dnsNameserver: '',
+  tunEnabled: false,
+  tunStack: 'gvisor',
+  tunAutoRoute: true,
+  tunDnsHijack: true,
 });
+
+const TUN_STACKS = new Set(['gvisor', 'system', 'mixed']);
 
 const MODES = new Set(['rule', 'global', 'direct']);
 const LOG_LEVELS = new Set(['debug', 'info', 'warning', 'error', 'silent']);
@@ -60,6 +66,20 @@ function validateSettings(input) {
     const port = Number(input.dnsPort);
     if (!Number.isInteger(port) || port < 1024 || port > 65535) errors.push('DNS 端口必须是 1024 到 65535 之间的整数');
     else result.dnsPort = port;
+  }
+  if (input.tunEnabled !== undefined) {
+    if (typeof input.tunEnabled !== 'boolean') errors.push('tunEnabled 必须是布尔值');
+    else result.tunEnabled = input.tunEnabled;
+  }
+  if (input.tunStack !== undefined) {
+    if (!TUN_STACKS.has(input.tunStack)) errors.push('TUN 栈必须是 gvisor、system 或 mixed');
+    else result.tunStack = input.tunStack;
+  }
+  for (const key of ['tunAutoRoute', 'tunDnsHijack']) {
+    if (input[key] !== undefined) {
+      if (typeof input[key] !== 'boolean') errors.push(`${key} 必须是布尔值`);
+      else result[key] = input[key];
+    }
   }
   if (input.dnsNameserver !== undefined) {
     if (typeof input.dnsNameserver !== 'string') errors.push('DNS 服务器必须是字符串');

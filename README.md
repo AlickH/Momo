@@ -21,6 +21,7 @@ Momo 以 fnOS Native 进程方式运行：Node.js 后端托管 mihomo、管理�
 - **代理选择**：策略组、节点延迟测速、节点切换、代理提供者更新与健康检查。
 - **实时观察**：流量曲线、连接列表（含详情弹窗）、规则命中、内核日志，支持筛选与关闭连接。
 - **配置编辑**：代理端口、局域网访问、IPv6、模式、日志级别、统一延迟、TCP 并发、DNS 监听端口/上游。
+- **可选 TUN**：需要 NET_ADMIN 能力，安装脚本自动授予；支持 gVisor/System/Mixed 栈、自动路由和 DNS 劫持。
 - **备份恢复**：导出包含设置和全部订阅内容的 JSON 备份，可在重装后恢复。
 - **原生外观**：200px 侧边栏、悬浮圆角内容面板、Ant Design 风格配色，自动跟随 fnOS 明暗主题。
 - **最小权限**：以专用 `momo` 用户运行，不申请 root，不声明共享目录；控制器只监听 `127.0.0.1`。
@@ -74,8 +75,8 @@ Node.js 后端（Express）
 - 飞牛 fnOS `>= 1.1.3100`（统一网关）
 - 商店依赖 `nodejs_v24`（manifest 中已声明，安装时自动处理）
 - 按设备架构选择 FPK：
-  - x86 设备：`dist/momo_1.0.6_x86.fpk`
-  - ARM 设备：`dist/momo_1.0.6_arm.fpk`
+  - x86 设备：`dist/momo_1.0.7_x86.fpk`
+  - ARM 设备：`dist/momo_1.0.7_arm.fpk`
 
 安装步骤：
 
@@ -116,8 +117,8 @@ node scripts/build.mjs --arch=x86
 产物：
 
 ```text
-dist/momo_1.0.6_x86.fpk
-dist/momo_1.0.6_arm.fpk
+dist/momo_1.0.7_x86.fpk
+dist/momo_1.0.7_arm.fpk
 dist/SHA256SUMS
 ```
 
@@ -189,11 +190,11 @@ npm test
 - 代理端口、DNS 端口与 DNS 上游设置
 - 代理提供者批量更新
 
-以下能力受 fnOS 应用权限模型或产品范围限制，未纳入：透明代理/Redir/TUN、防火墙与端口转发、DDNS、Telegram Bot、内核自更新。需要这类系统级能力时仍应使用具备 root 权限的 ShellCrash。
+以下能力受 fnOS 应用权限模型或产品范围限制，未纳入：Redir/TPROXY 透明代理、防火墙与端口转发、DDNS、Telegram Bot、内核自更新。需要这类系统级能力时仍应使用具备 root 权限的 ShellCrash。TUN 已作为可选功能提供。
 
 ## 已知限制
 
-- 使用 HTTP/SOCKS5 混合代理，**不创建 TUN 虚拟网卡**。fnOS 包用户没有网络管理权限，因此不提供透明代理/TUN 开关；需要透明代理请改用具备特权的独立部署。
+- 默认使用 HTTP/SOCKS5 混合代理。TUN 为**可选实验功能**：应用以 `momo` 包用户运行，但安装脚本会为 mihomo 二进制授予 `cap_net_admin,cap_net_raw` 能力；开启 TUN 后可以创建虚拟网卡并接管路由。TUN 会影响整个 NAS 网络，开启前请确认可承受断网风险。
 - 订阅配置中的 `dns.listen` 会被应用设置中的 DNS 端口覆盖（默认 `1053`），避免 package 用户无法监听 53 等特权端口；可在设置中修改 DNS 上游。
 - 切换订阅不做完整的 `mihomo -t` 预校验，避免订阅内 provider 网络拉取导致切换超时；配置写入后由 mihomo 热重载或重启直接应用，失败会回滚到原配置并在界面显示错误。
 - 订阅下载依赖 NAS 自身能访问订阅地址；如果订阅地址只能通过代理访问，请先粘贴配置。

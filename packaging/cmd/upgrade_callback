@@ -3,4 +3,14 @@
 chmod 755 "${TRIM_APPDEST}/core/mihomo" 2>/dev/null || true
 mkdir -p "${TRIM_PKGVAR}/logs" "${TRIM_PKGVAR}/core" "${TRIM_PKGVAR}/profiles"
 rm -f "${TRIM_APPDEST}/app.sock"
+LOG_FILE="${TRIM_PKGVAR}/logs/server.out"
+CORE="${TRIM_APPDEST}/core/mihomo"
+
+if command -v setcap >/dev/null 2>&1; then
+  if setcap cap_net_admin,cap_net_raw+ep "$CORE" 2>>"$LOG_FILE"; then
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - TUN capabilities granted to core" >> "$LOG_FILE"
+  else
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - WARNING: failed to grant TUN capabilities" >> "$LOG_FILE"
+  fi
+fi
 exit 0

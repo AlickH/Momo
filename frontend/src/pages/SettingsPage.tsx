@@ -21,6 +21,7 @@ import {
   Download,
   Upload,
   DatabaseBackup,
+  Network,
 } from 'lucide-react';
 import { useApp, type ThemeMode } from '../context/AppContext';
 import { api } from '../lib/api';
@@ -249,6 +250,52 @@ export function SettingsPage() {
               <span className="truncate">客户端代理地址</span>
               <span className="mono truncate text-ink/80">{clientAddress}</span>
               <CopyButton text={clientAddress} label="复制" />
+            </div>
+          </Card>
+
+          <Card>
+            <div className="flex items-center gap-2 border-b border-line/8 pb-3">
+              <Network className="h-4 w-4 text-accent" />
+              <h3 className="text-sm font-semibold text-ink">TUN 模式</h3>
+            </div>
+            <div className="pt-1">
+              <SettingRow title="启用 TUN" description="创建 TUN 虚拟网卡并接管系统流量，需要内核具备 NET_ADMIN 能力。">
+                <Switch
+                  checked={form.tunEnabled}
+                  onChange={(value) => setForm((prev) => ({ ...prev, tunEnabled: value }))}
+                  disabled={!status!.app.tunCapable}
+                  label="启用 TUN"
+                />
+              </SettingRow>
+              {!status!.app.tunCapable ? (
+                <p className="mt-2 rounded-lg border border-warning/15 bg-warning/6 px-3 py-2 text-[10px] leading-relaxed text-warning">
+                  当前内核缺少 cap_net_admin 能力。请重新安装/升级 FPK 以执行安装脚本授予能力，或手动执行 setcap。
+                </p>
+              ) : null}
+              {form.tunEnabled ? (
+                <>
+                  <SettingRow title="TUN 栈" description="gvisor 兼容性最好；system 性能更高；mixed 由内核选择。">
+                    <select
+                      value={form.tunStack}
+                      onChange={(event) => setForm((prev) => ({ ...prev, tunStack: event.target.value as Settings['tunStack'] }))}
+                      className="focus-ring h-9 rounded-lg border border-line/10 bg-surface2 px-2.5 text-xs text-ink"
+                    >
+                      <option value="gvisor">gVisor</option>
+                      <option value="system">System</option>
+                      <option value="mixed">Mixed</option>
+                    </select>
+                  </SettingRow>
+                  <SettingRow title="自动接管路由" description="自动设置 TUN 路由和接口检测。开启后可能影响 NAS 自身网络，请确认后再保存。">
+                    <Switch checked={form.tunAutoRoute} onChange={(value) => setForm((prev) => ({ ...prev, tunAutoRoute: value }))} label="自动接管路由" />
+                  </SettingRow>
+                  <SettingRow title="DNS 劫持" description="把发往 53 端口的 DNS 请求交给 mihomo DNS 处理。">
+                    <Switch checked={form.tunDnsHijack} onChange={(value) => setForm((prev) => ({ ...prev, tunDnsHijack: value }))} label="DNS 劫持" />
+                  </SettingRow>
+                  <p className="mt-2 rounded-lg border border-warning/15 bg-warning/6 px-3 py-2 text-[10px] leading-relaxed text-warning">
+                    TUN 模式会影响整个 NAS 的网络出口；如果开启后 SSH/管理页面断开，可等待应用自动恢复，或通过应用中心停止 Momo 后重新连接。
+                  </p>
+                </>
+              ) : null}
             </div>
           </Card>
 
