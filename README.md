@@ -71,7 +71,7 @@ Node.js 后端（Express）
 要求：
 
 - 飞牛 fnOS `>= 1.1.3100`（统一网关）
-- 商店依赖 `nodejs_v22`（manifest 中已声明，安装时自动处理）
+- 商店依赖 `nodejs_v24`（manifest 中已声明，安装时自动处理）
 - 按设备架构选择 FPK：
   - x86 设备：`dist/momo_1.0.0_x86.fpk`
   - ARM 设备：`dist/momo_1.0.0_arm.fpk`

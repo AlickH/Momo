@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export PATH=/var/apps/nodejs_v22/target/bin:$PATH
+export PATH=/var/apps/nodejs_v24/target/bin:$PATH
 export NODE_ENV=production
 
 APP_DIR="${TRIM_APPDEST}/server"
@@ -54,7 +54,7 @@ start_app() {
     return 1
   fi
   if ! command -v node >/dev/null 2>&1; then
-    error_msg "未找到 Node.js 运行时 nodejs_v22"
+    error_msg "未找到 Node.js 运行时 nodejs_v24"
     return 1
   fi
 
