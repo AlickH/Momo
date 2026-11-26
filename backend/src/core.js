@@ -8,12 +8,13 @@ const { findFreePort, randomSecret, sleep } = require('./util');
 const START_TIMEOUT_MS = 60000;
 
 class CoreManager extends EventEmitter {
-  constructor({ bin, dataDir, logger, prepareConfig, appUid = null, appGid = null }) {
+  constructor({ bin, dataDir, logger, prepareConfig, resolveController = null, appUid = null, appGid = null }) {
     super();
     this.bin = bin;
     this.dataDir = dataDir;
     this.logger = logger;
     this.prepareConfig = prepareConfig;
+    this.resolveController = resolveController;
     this.appUid = appUid;
     this.appGid = appGid;
     this.child = null;
@@ -29,7 +30,8 @@ class CoreManager extends EventEmitter {
     this.restartAttempts = 0;
     this.nextRestartAt = null;
     this.lastOutput = [];
-    this.secret = randomSecret();
+    this.secret = null;
+    this.controllerHost = '127.0.0.1';
     this.controllerPort = null;
     this.startPromise = null;
     this.exitWaiters = [];
@@ -76,11 +78,20 @@ class CoreManager extends EventEmitter {
     this.setState('starting', { nextRestartAt: null });
 
     let controllerPort;
+    let controllerHost;
+    let secret;
     let configPath;
     try {
-      controllerPort = await findFreePort();
+      const resolved = this.resolveController
+        ? await this.resolveController()
+        : { port: await findFreePort(), secret: randomSecret(), host: '127.0.0.1' };
+      controllerPort = resolved.port;
+      controllerHost = resolved.host || '127.0.0.1';
+      secret = resolved.secret;
       this.controllerPort = controllerPort;
-      configPath = await this.prepareConfig({ controllerPort, secret: this.secret });
+      this.controllerHost = controllerHost;
+      this.secret = secret;
+      configPath = await this.prepareConfig({ controllerPort, secret, controllerHost });
     } catch (error) {
       this.starting = false;
       this.desired = false;
@@ -88,7 +99,7 @@ class CoreManager extends EventEmitter {
       throw error;
     }
 
-    const controller = new ControllerClient({ port: controllerPort, secret: this.secret });
+    const controller = new ControllerClient({ port: controllerPort, secret });
     const spawnOptions = {
       cwd: this.dataDir,
       env: { ...process.env },

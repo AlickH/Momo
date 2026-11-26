@@ -12,7 +12,7 @@ const { ProfileManager, fetchSubscription } = require('./profiles');
 const { SettingsStore } = require('./settings');
 const { buildRuntimeConfig, parseProfile } = require('./config-builder');
 const { AppError, badRequest, conflict, notFound } = require('./errors');
-const { ensureDir, writeFileAtomic, findFreePort } = require('./util');
+const { ensureDir, writeFileAtomic, findFreePort, randomSecret } = require('./util');
 
 const DEFAULT_DELAY_URL = 'https://www.gstatic.com/generate_204';
 const DELAY_CONCURRENCY = 6;
@@ -36,8 +36,9 @@ class MomoService {
       logger,
       appUid: env.appUid,
       appGid: env.appGid,
-      prepareConfig: ({ controllerPort, secret }) =>
-        this.writeRuntimeConfig(undefined, { controllerPort, secret }),
+      resolveController: () => this.resolveController(),
+      prepareConfig: ({ controllerPort, secret, controllerHost }) =>
+        this.writeRuntimeConfig(undefined, { controllerPort, secret, controllerHost }),
     });
     this.profileUpdateTimer = null;
     this.profileUpdateRunning = false;
@@ -90,6 +91,18 @@ class MomoService {
     } finally {
       this.profileUpdateRunning = false;
     }
+  }
+
+  async resolveController() {
+    const settings = this.settings.get();
+    if (settings.externalController) {
+      return {
+        host: '0.0.0.0',
+        port: settings.externalControllerPort,
+        secret: settings.externalControllerSecret,
+      };
+    }
+    return { host: '127.0.0.1', port: await findFreePort(), secret: randomSecret() };
   }
 
   async detectTunCapability() {
@@ -193,24 +206,29 @@ class MomoService {
     return this.core.snapshot();
   }
 
-  async writeRuntimeConfig(content, { controllerPort, secret }) {
+  async writeRuntimeConfig(content, { controllerPort, secret, controllerHost = '127.0.0.1' }) {
     const activeContent = content === undefined ? await this.profiles.activeContent() : content;
     const parsed = activeContent ? parseProfile(activeContent).config : null;
-    const yaml = buildRuntimeConfig(parsed, this.settings.get(), { controllerPort, secret });
+    const yaml = buildRuntimeConfig(parsed, this.settings.get(), { controllerPort, secret, controllerHost });
     await writeFileAtomic(this.configPath, yaml, 0o644);
     return this.configPath;
   }
 
-  async buildConfig(content, { controllerPort, secret }) {
+  async buildConfig(content, { controllerPort, secret, controllerHost }) {
     const parsed = content ? parseProfile(content).config : null;
-    return buildRuntimeConfig(parsed, this.settings.get(), { controllerPort, secret });
+    return buildRuntimeConfig(parsed, this.settings.get(), { controllerPort, secret, controllerHost });
   }
 
   async currentControllerCredentials() {
     if (this.core.running) {
-      return { controllerPort: this.core.controllerPort, secret: this.core.secret };
+      return {
+        controllerPort: this.core.controllerPort,
+        secret: this.core.secret,
+        controllerHost: this.core.controllerHost,
+      };
     }
-    return { controllerPort: await findFreePort(), secret: this.core.secret };
+    const resolved = await this.resolveController();
+    return { controllerPort: resolved.port, secret: resolved.secret, controllerHost: resolved.host };
   }
 
   async applyConfigYaml(yaml, { reload = true } = {}) {
@@ -285,7 +303,7 @@ class MomoService {
     if (!this.core.running) throw conflict('核心尚未运行');
     await this.core.controller.patchConfigs({ mode });
     await this.settings.update({ mode });
-    const credentials = { controllerPort: this.core.controllerPort, secret: this.core.secret };
+    const credentials = { controllerPort: this.core.controllerPort, secret: this.core.secret, controllerHost: this.core.controllerHost };
     await this.writeRuntimeConfig(undefined, credentials);
     return this.settings.get();
   }

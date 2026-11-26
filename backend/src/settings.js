@@ -1,4 +1,5 @@
 const path = require('node:path');
+const crypto = require('node:crypto');
 const { AppError } = require('./errors');
 const { readJson, writeJson, isPlainObject } = require('./util');
 
@@ -20,6 +21,9 @@ const DEFAULTS = Object.freeze({
   tunStack: 'gvisor',
   tunAutoRoute: true,
   tunDnsHijack: true,
+  externalController: false,
+  externalControllerPort: 9090,
+  externalControllerSecret: '',
 });
 
 const TUN_STACKS = new Set(['gvisor', 'system', 'mixed']);
@@ -102,6 +106,23 @@ function validateSettings(input) {
       else result[key] = input[key];
     }
   }
+  if (input.externalController !== undefined) {
+    if (typeof input.externalController !== 'boolean') errors.push('externalController 必须是布尔值');
+    else result.externalController = input.externalController;
+  }
+  if (input.externalControllerPort !== undefined) {
+    const port = Number(input.externalControllerPort);
+    if (!Number.isInteger(port) || port < 1024 || port > 65535) errors.push('外部控制器端口必须是 1024 到 65535 之间的整数');
+    else result.externalControllerPort = port;
+  }
+  if (input.externalControllerSecret !== undefined) {
+    if (typeof input.externalControllerSecret !== 'string') errors.push('外部控制器密钥必须是字符串');
+    else {
+      const secret = input.externalControllerSecret.trim();
+      if (secret.length > 0 && (secret.length < 16 || secret.length > 128)) errors.push('外部控制器密钥长度必须在 16 到 128 之间');
+      else result.externalControllerSecret = secret;
+    }
+  }
   if (input.dnsNameserver !== undefined) {
     if (typeof input.dnsNameserver !== 'string') errors.push('DNS 服务器必须是字符串');
     else {
@@ -140,7 +161,11 @@ class SettingsStore {
   }
 
   async update(patch) {
-    const merged = validateSettings({ ...this.value, ...patch });
+    const next = { ...this.value, ...patch };
+    if (next.externalController && !next.externalControllerSecret) {
+      next.externalControllerSecret = crypto.randomBytes(24).toString('hex');
+    }
+    const merged = validateSettings(next);
     await this.save(merged);
     this.value = merged;
     return this.get();

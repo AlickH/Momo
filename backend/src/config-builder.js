@@ -64,7 +64,7 @@ function parseProfile(content) {
   return { config, content: finalContent, proxyCount, providerCount };
 }
 
-function buildRuntimeConfig(profile, settings, { controllerPort, secret }) {
+function buildRuntimeConfig(profile, settings, { controllerPort, secret, controllerHost = '127.0.0.1' }) {
   const base = profile ? structuredClone(profile) : {};
   const config = { ...base };
 
@@ -88,7 +88,7 @@ function buildRuntimeConfig(profile, settings, { controllerPort, secret }) {
     ipv6: settings.ipv6,
     'unified-delay': settings.unifiedDelay,
     'tcp-concurrent': settings.tcpConcurrent,
-    'external-controller': `127.0.0.1:${controllerPort}`,
+    'external-controller': `${controllerHost}:${controllerPort}`,
     secret,
     'geo-auto-update': false,
     profile: {

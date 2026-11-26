@@ -31,6 +31,9 @@ export interface Settings {
   tunStack: 'gvisor' | 'system' | 'mixed';
   tunAutoRoute: boolean;
   tunDnsHijack: boolean;
+  externalController: boolean;
+  externalControllerPort: number;
+  externalControllerSecret: string;
 }
 
 export interface SubscriptionInfo {

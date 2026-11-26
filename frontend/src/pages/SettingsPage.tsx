@@ -23,6 +23,7 @@ import {
   DatabaseBackup,
   Network,
   Zap,
+  Server,
 } from 'lucide-react';
 import { useApp, type ThemeMode } from '../context/AppContext';
 import { api } from '../lib/api';
@@ -279,6 +280,58 @@ export function SettingsPage() {
                   className="focus-ring h-9 w-24 rounded-lg border border-line/10 bg-surface2 px-2.5 text-right text-sm text-ink tabular"
                 />
               </SettingRow>
+            </div>
+          </Card>
+
+          <Card>
+            <div className="flex items-center gap-2 border-b border-line/8 pb-3">
+              <Server className="h-4 w-4 text-accent" />
+              <h3 className="text-sm font-semibold text-ink">外部控制器（zashboard）</h3>
+            </div>
+            <div className="pt-1">
+              <SettingRow title="允许局域网连接" description="把 mihomo 控制器绑定到 0.0.0.0，供 zashboard 等外部面板直接连接。开启后会暴露 Clash API 到局域网。">
+                <Switch
+                  checked={form.externalController}
+                  onChange={(value) => setForm((prev) => ({ ...prev, externalController: value }))}
+                  label="允许局域网连接"
+                />
+              </SettingRow>
+              <SettingRow title="端口" description="zashboard 使用的控制器端口，修改后内核会重启。">
+                <input
+                  type="number"
+                  min={1024}
+                  max={65535}
+                  value={form.externalControllerPort}
+                  onChange={(event) => setForm((prev) => ({ ...prev, externalControllerPort: Number(event.target.value) }))}
+                  className="focus-ring h-9 w-24 rounded-lg border border-line/10 bg-surface2 px-2.5 text-right text-sm text-ink tabular"
+                />
+              </SettingRow>
+              <SettingRow title="密钥" description="zashboard 的 Password 字段。留空保存会自动生成；开启后请只在可信局域网使用。">
+                <div className="flex items-center gap-2">
+                  <input
+                    value={form.externalControllerSecret}
+                    onChange={(event) => setForm((prev) => ({ ...prev, externalControllerSecret: event.target.value }))}
+                    placeholder="留空自动生成"
+                    className="focus-ring h-9 w-[260px] max-w-full rounded-lg border border-line/10 bg-surface2 px-2.5 font-mono text-[10px] text-ink placeholder:font-sans placeholder:text-muted/50"
+                  />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      const bytes = crypto.getRandomValues(new Uint8Array(24));
+                      const secret = [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+                      setForm((prev) => ({ ...prev, externalControllerSecret: secret }));
+                    }}
+                  >
+                    生成
+                  </Button>
+                </div>
+              </SettingRow>
+              {form.externalController ? (
+                <p className="mt-2 rounded-lg border border-warning/15 bg-warning/6 px-3 py-2 text-[10px] leading-relaxed text-warning">
+                  启用后 Clash 控制器会监听 0.0.0.0:{form.externalControllerPort}，局域网内知道密钥的人都能管理内核。zashboard 填：类型 Clash、协议 HTTP、Host 为 NAS 的局域网 IP、Port {form.externalControllerPort}、Password 为上面的密钥。
+                </p>
+              ) : null}
             </div>
           </Card>
 
