@@ -72,12 +72,12 @@ export function TrafficChart({ history }: { history: TrafficPoint[] }) {
       xAxis: {
         type: 'time',
         min: latest - WINDOW_MS,
-        max: latest,
+        max: latest - 1000,
         axisLine: { show: false },
         axisTick: { show: false },
         splitLine: { show: false },
         axisLabel: {
-          show: true,
+          show: false,
           color: textMuted,
           fontSize: 9,
           hideOverlap: true,
@@ -102,10 +102,10 @@ export function TrafficChart({ history }: { history: TrafficPoint[] }) {
         {
           name: '上传',
           type: 'line',
-          smooth: 0.35,
+          smooth: true,
           symbol: 'none',
           showSymbol: false,
-          lineStyle: { width: 1.8, color: upColor },
+          lineStyle: { width: 1, color: upColor },
           itemStyle: { color: upColor },
           areaStyle: {
             color: {
@@ -120,16 +120,16 @@ export function TrafficChart({ history }: { history: TrafficPoint[] }) {
               ],
             },
           },
-          data: points.map((point) => [point.t, point.up]),
+          data: points.map((point) => ({ name: point.t, value: [point.t, point.up] })),
           emphasis: { disabled: true },
         },
         {
           name: '下载',
           type: 'line',
-          smooth: 0.35,
+          smooth: true,
           symbol: 'none',
           showSymbol: false,
-          lineStyle: { width: 1.8, color: downColor },
+          lineStyle: { width: 1, color: downColor },
           itemStyle: { color: downColor },
           areaStyle: {
             color: {
@@ -144,7 +144,7 @@ export function TrafficChart({ history }: { history: TrafficPoint[] }) {
               ],
             },
           },
-          data: points.map((point) => [point.t, point.down]),
+          data: points.map((point) => ({ name: point.t, value: [point.t, point.down] })),
           emphasis: { disabled: true },
         },
       ],
@@ -166,7 +166,7 @@ export function TrafficChart({ history }: { history: TrafficPoint[] }) {
   }, []);
 
   useEffect(() => {
-    chartRef.current?.setOption(option, { lazyUpdate: true });
+    chartRef.current?.setOption(option);
   }, [option]);
 
   return (
