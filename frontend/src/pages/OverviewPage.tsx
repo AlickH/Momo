@@ -257,7 +257,7 @@ export function OverviewPage() {
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.62fr)_minmax(320px,1fr)]">
+      <div className="grid gap-4 min-[880px]:grid-cols-[minmax(0,1.62fr)_minmax(320px,1fr)]">
         <div className="space-y-4">
           <Card className={cardClass('traffic', 'overflow-hidden !p-0')}>
             <div className="flex flex-wrap items-start justify-between gap-4 px-5 pt-5">
