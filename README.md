@@ -30,7 +30,7 @@ Momo 以 fnOS Native 进程方式运行：Node.js 后端托管 mihomo、管理�
 - **运行趋势 / IP 检测**：内存、连接数历史曲线和代理出口/直连出口 IP 对比。
 - **自定义规则**：保存时插入到订阅规则最前面，优先级最高。
 - **拓扑视图**：按来源 → 出站/节点 → 目标聚合当前活动连接。
-- **地图视图**：基于连接目标 IP 的地理分布，带 6 小时定位缓存。
+- **地图视图**：3D 地球，城市级目标分布与代理出口弧线，使用内置 IP2Location DB5。
 - **端口转发**：把 NAS 监听端口的 TCP/UDP 流量 DNAT 到内网地址，默认关闭，使用独立 nft 表。
 - **连接历史**：按来源 IP / 目标 / 进程 / 出站 / 规则聚合本次运行期间关闭的连接。
 - **界面增强**：策略组文件夹/置顶/自定义图标、按名称/节点数/延迟排序、全部折叠、延迟历史柱状图、概览卡片显隐、键盘快捷键（g o/p/s/c/r/l/e、?）。
@@ -87,8 +87,8 @@ Node.js 后端（Express）
 - 飞牛 fnOS `>= 1.1.3100`（统一网关）
 - 商店依赖 `nodejs_v24`（manifest 中已声明，安装时自动处理）
 - 按设备架构选择 FPK：
-  - x86 设备：`dist/momo_1.0.54_x86.fpk`
-  - ARM 设备：`dist/momo_1.0.54_arm.fpk`
+  - x86 设备：`dist/momo_1.0.55_x86.fpk`
+  - ARM 设备：`dist/momo_1.0.55_arm.fpk`
 
 安装步骤：
 
@@ -129,8 +129,8 @@ node scripts/build.mjs --arch=x86
 产物：
 
 ```text
-dist/momo_1.0.54_x86.fpk
-dist/momo_1.0.54_arm.fpk
+dist/momo_1.0.55_x86.fpk
+dist/momo_1.0.55_arm.fpk
 dist/SHA256SUMS
 ```
 

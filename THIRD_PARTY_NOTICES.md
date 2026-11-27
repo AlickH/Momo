@@ -39,3 +39,6 @@ Momo 自身代码以 MIT 许可发布。分发包中包含以下第三方组件�
 
 安装脚本会为 `app/core/mihomo` 设置 `cap_net_admin,cap_net_raw` 文件能力，以支持可选 TUN 模式。该能力允许进程管理网络接口与路由；不开启 TUN 时不会使用。
 \n## IP2Location LITE DB5\n\n本应用包含 IP2Location LITE DB5 数据库，用于离线 IP 城市级定位。\n数据由 IP2Location 提供，使用需遵守其 LITE 许可条款：https://lite.ip2location.com/license\n
+## Earth textures / Three.js
+
+地球纹理来自 Solar System Scope（CC BY 4.0），经 zashboard 项目使用；3D 渲染使用 Three.js（MIT）。

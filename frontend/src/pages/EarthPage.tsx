@@ -1,23 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Globe2, MapPin, RefreshCw } from 'lucide-react';
-import { geoNaturalEarth1, geoPath } from 'd3-geo';
-import { feature } from 'topojson-client';
-import world from 'world-atlas/countries-110m.json';
 import { usePolling } from '../hooks/usePolling';
 import { api } from '../lib/api';
-import { formatBytes } from '../lib/format';
+import { Globe3D, type GlobeMarker } from '../components/Globe3D';
 import { Badge, Button, Card, EmptyState, Skeleton } from '../components/ui';
 import type { ConnectionsData, GeoLocation } from '../types';
-
-const WIDTH = 1000;
-const HEIGHT = 500;
-
-const topology = world as unknown as { objects: { countries: unknown } };
-const countries = feature(topology as never, topology.objects.countries as never) as unknown as {
-  features: Array<{ type: string; properties: { name?: string }; geometry: unknown }>;
-};
-const projection = geoNaturalEarth1().fitExtent([[12, 12], [WIDTH - 12, HEIGHT - 12]], countries as never);
-const path = geoPath(projection);
 
 interface Marker extends GeoLocation {
   count: number;
@@ -29,6 +16,7 @@ interface Marker extends GeoLocation {
 export function EarthPage() {
   const connections = usePolling<ConnectionsData>(() => api.get('connections'), 3000);
   const [locations, setLocations] = useState<Record<string, GeoLocation>>({});
+  const [origin, setOrigin] = useState<GlobeMarker | null>(null);
   const [resolving, setResolving] = useState(false);
 
   const grouped = useMemo(() => {
@@ -71,9 +59,29 @@ export function EarthPage() {
     return () => { cancelled = true; };
   }, [grouped, locations]);
 
-  const markers = grouped
+  useEffect(() => {
+    let cancelled = false;
+    const loadOrigin = async () => {
+      try {
+        const result = await api.post<{ proxyIp: string }>('ip-check', undefined, { timeoutMs: 30000 });
+        if (!result.proxyIp) return;
+        const geo = await api.post<{ locations: Record<string, GeoLocation> }>('geo/resolve', { ips: [result.proxyIp] }, { timeoutMs: 15000 });
+        const location = geo.locations[result.proxyIp];
+        if (!cancelled && location) {
+          setOrigin({ lat: location.lat, lon: location.lon, city: location.city, country: location.country, count: 0 });
+        }
+      } catch {
+        // Origin is optional; destinations still render without arcs.
+      }
+    };
+    void loadOrigin();
+    return () => { cancelled = true; };
+  }, []);
+
+  const markers: GlobeMarker[] = grouped
     .map((marker) => ({ ...marker, ...(locations[marker.ip] ?? {}) }))
-    .filter((marker) => Number.isFinite(marker.lat) && Number.isFinite(marker.lon) && (marker.lat !== 0 || marker.lon !== 0));
+    .filter((marker) => Number.isFinite(marker.lat) && Number.isFinite(marker.lon) && (marker.lat !== 0 || marker.lon !== 0))
+    .map((marker) => ({ lat: marker.lat, lon: marker.lon, city: marker.city, country: marker.country, count: marker.count }));
 
   const total = connections.data?.connections.length ?? 0;
 
@@ -82,7 +90,7 @@ export function EarthPage() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="text-sm font-semibold text-ink">地图</h2>
-          <p className="mt-0.5 text-[12px] text-muted">当前连接目标的地理分布，IP 定位缓存 6 小时</p>
+          <p className="mt-0.5 text-[12px] text-muted">当前连接目标的 3D 地理分布，IP 城市定位来自 IP2Location DB5</p>
         </div>
         <div className="flex items-center gap-2">
           <Badge tone="info">{total} 活动连接</Badge>
@@ -91,66 +99,35 @@ export function EarthPage() {
       </div>
 
       {connections.loading && !connections.data ? (
-        <Skeleton className="h-[420px]" />
-      ) : markers.length === 0 ? (
-        <Card>
-          <EmptyState icon={<Globe2 className="h-5 w-5" />} title="暂无地理位置数据" description="产生到公网 IP 的连接后，这里会显示目标在地图上的位置。" />
-        </Card>
+        <Skeleton className="h-[520px]" />
       ) : (
         <>
           <Card padded={false} className="overflow-hidden">
-            <div className="relative bg-[rgb(var(--surface2))]">
-              <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="block h-auto w-full">
-                <g>
-                  {countries.features.map((country, index) => (
-                    <path
-                      key={index}
-                      d={path(country as never) ?? undefined}
-                      fill="rgb(var(--surface-3))"
-                      stroke="rgb(var(--line) / 0.22)"
-                      strokeWidth="0.5"
-                    />
-                  ))}
-                </g>
-                <g>
-                  {markers.map((marker) => {
-                    const point = projection([marker.lon, marker.lat]);
-                    if (!point) return null;
-                    const radius = Math.max(3, Math.min(11, 3 + Math.sqrt(marker.count) * 1.3));
-                    return (
-                      <g key={marker.ip}>
-                        <circle cx={point[0]} cy={point[1]} r={radius + 5} fill="rgb(var(--accent) / 0.14)" />
-                        <circle cx={point[0]} cy={point[1]} r={radius} fill="rgb(var(--accent))" opacity="0.88">
-                          <title>{`${marker.city || marker.country || marker.ip}\n${marker.count} 连接 · ↓${formatBytes(marker.download)}`}</title>
-                        </circle>
-                      </g>
-                    );
-                  })}
-                </g>
-              </svg>
-              <div className="pointer-events-none absolute bottom-2 left-3 text-[10px] text-muted/60">
-                {resolving ? '正在定位…' : `${markers.length} 个目标位置`} · GeoIP: mihomo geoip.metadb
-              </div>
-            </div>
+            <Globe3D markers={markers} origin={origin} />
           </Card>
 
-          <Card>
-            <div className="flex items-center gap-2 border-b border-line/8 pb-2.5">
-              <MapPin className="h-4 w-4 text-accent" />
-              <h3 className="text-sm font-semibold text-ink">目标分布</h3>
-            </div>
-            <div className="mt-2 divide-y divide-line/5">
-              {markers.slice(0, 12).map((marker) => (
-                <div key={marker.ip} className="flex items-center gap-3 py-2 text-[11px]">
-                  <span className="w-14 shrink-0 mono text-muted/60">{marker.countryCode || '—'}</span>
-                  <span className="min-w-0 flex-1 truncate text-ink">{marker.hosts[0] || marker.ip}</span>
-                  <span className="shrink-0 text-muted/60">{marker.city || marker.country}</span>
-                  <span className="shrink-0 text-muted/60">{marker.count} 连接</span>
-                  <span className="shrink-0 text-muted/60">↓{formatBytes(marker.download)}</span>
-                </div>
-              ))}
-            </div>
-          </Card>
+          {markers.length === 0 ? (
+            <Card>
+              <EmptyState icon={<Globe2 className="h-5 w-5" />} title="暂无地理位置数据" description="产生到公网 IP 的连接后，这里会显示目标在地球上的位置。" />
+            </Card>
+          ) : (
+            <Card>
+              <div className="flex items-center gap-2 border-b border-line/8 pb-2.5">
+                <MapPin className="h-4 w-4 text-accent" />
+                <h3 className="text-sm font-semibold text-ink">目标分布</h3>
+                <span className="ml-auto text-[10px] text-muted/60">{origin ? `起点 ${origin.city || origin.country}` : resolving ? '正在定位起点…' : '起点未知'}</span>
+              </div>
+              <div className="mt-2 divide-y divide-line/5">
+                {markers.slice(0, 12).map((marker, index) => (
+                  <div key={`${marker.lat}-${marker.lon}-${index}`} className="flex items-center gap-3 py-2 text-[11px]">
+                    <span className="w-14 shrink-0 mono text-muted/60">{marker.country}</span>
+                    <span className="min-w-0 flex-1 truncate text-ink">{marker.city || marker.country}</span>
+                    <span className="shrink-0 text-muted/60">{marker.count} 连接</span>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
         </>
       )}
     </div>
