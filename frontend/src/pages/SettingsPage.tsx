@@ -770,6 +770,11 @@ export function SettingsPage() {
               <ServerCog className="h-4 w-4 text-accent" />
               <h3 className="text-sm font-semibold text-ink">内核操作</h3>
             </div>
+            <div className="mt-3">
+              <SettingRow title="开机自动启动内核" description="应用启动时自动启动 mihomo。关闭后，重启应用或设备时内核保持停止；修改仅下次应用启动生效。">
+                <Switch checked={form.coreAutoStart} onChange={(value) => setForm((prev) => ({ ...prev, coreAutoStart: value }))} label="开机自动启动内核" />
+              </SettingRow>
+            </div>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               {running ? (
                 <>

@@ -12,6 +12,7 @@ test('validateSettings applies defaults and rejects invalid values', () => {
     unifiedDelay: true,
     tcpConcurrent: true,
     subscriptionUpdateHours: 0,
+    coreAutoStart: true,
     providerUpdateHours: 0,
     ruleProviderUpdateHours: 0,
     coreRestartHours: 0,

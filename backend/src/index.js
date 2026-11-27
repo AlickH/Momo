@@ -43,7 +43,7 @@ async function main() {
   }
 
   attachTrafficSocket(server, { service, logger });
-  service.startCore();
+  if (service.settings.get().coreAutoStart) service.startCore();
 
   let closing = false;
   const shutdown = async (signal) => {

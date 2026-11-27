@@ -25,6 +25,7 @@ export interface Settings {
   providerUpdateHours: number;
   ruleProviderUpdateHours: number;
   coreRestartHours: number;
+  coreAutoStart: boolean;
   dnsPort: number;
   dnsNameserver: string;
   proxyMode: 'off' | 'tun' | 'redir' | 'tproxy';

@@ -12,6 +12,7 @@ const DEFAULTS = Object.freeze({
   unifiedDelay: true,
   tcpConcurrent: true,
   subscriptionUpdateHours: 0,
+  coreAutoStart: true,
   providerUpdateHours: 0,
   ruleProviderUpdateHours: 0,
   coreRestartHours: 0,
@@ -82,6 +83,10 @@ function validateSettings(input) {
       if (typeof input[key] !== 'boolean') errors.push(`${key} 必须是布尔值`);
       else result[key] = input[key];
     }
+  }
+  if (input.coreAutoStart !== undefined) {
+    if (typeof input.coreAutoStart !== 'boolean') errors.push('coreAutoStart 必须是布尔值');
+    else result.coreAutoStart = input.coreAutoStart;
   }
   for (const key of ['providerUpdateHours', 'ruleProviderUpdateHours', 'coreRestartHours']) {
     if (input[key] !== undefined) {

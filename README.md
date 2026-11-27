@@ -84,8 +84,8 @@ Node.js 后端（Express）
 - 飞牛 fnOS `>= 1.1.3100`（统一网关）
 - 商店依赖 `nodejs_v24`（manifest 中已声明，安装时自动处理）
 - 按设备架构选择 FPK：
-  - x86 设备：`dist/momo_1.0.42_x86.fpk`
-  - ARM 设备：`dist/momo_1.0.42_arm.fpk`
+  - x86 设备：`dist/momo_1.0.43_x86.fpk`
+  - ARM 设备：`dist/momo_1.0.43_arm.fpk`
 
 安装步骤：
 
@@ -126,8 +126,8 @@ node scripts/build.mjs --arch=x86
 产物：
 
 ```text
-dist/momo_1.0.42_x86.fpk
-dist/momo_1.0.42_arm.fpk
+dist/momo_1.0.43_x86.fpk
+dist/momo_1.0.43_arm.fpk
 dist/SHA256SUMS
 ```
 
