@@ -1,8 +1,6 @@
 const fs = require('node:fs');
 const { Reader } = require('mmdb-lib');
-const countries = require('world-countries');
-
-const countryByCode = new Map(countries.map((country) => [country.cca2.toLowerCase(), country]));
+const centroids = require('./country-centroids.json');
 const readers = new Map();
 
 function readerFor(dbPath) {
@@ -22,15 +20,15 @@ function lookup(ips, { dbPath } = {}) {
     try {
       const data = reader.get(ip);
       const code = Array.isArray(data) ? String(data[0] || '').toLowerCase() : '';
-      const country = countryByCode.get(code);
-      if (!country || !Array.isArray(country.latlng)) continue;
+      const country = centroids[code];
+      if (!country) continue;
       locations[ip] = {
         ip,
-        country: country.name.common,
-        countryCode: country.cca2,
+        country: country.name,
+        countryCode: country.code,
         city: '',
-        lat: country.latlng[0],
-        lon: country.latlng[1],
+        lat: country.lat,
+        lon: country.lon,
       };
     } catch {
       // Ignore IPs missing from the country database.
