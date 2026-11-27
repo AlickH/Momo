@@ -1,5 +1,5 @@
-import { useDeferredValue, useMemo, useState } from 'react';
-import { ArrowRight, Database, ListFilter, RefreshCw, Route, SearchX } from 'lucide-react';
+import { useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { ArrowRight, Database, FileCode2, ListFilter, RefreshCw, RotateCcw, Route, Save, SearchX } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
@@ -43,7 +43,7 @@ const RULE_LABEL: Record<string, string> = {
 };
 
 export function RulesPage() {
-  const { status } = useApp();
+  const { status, refreshStatus } = useApp();
   const { toast } = useToast();
   const rules = usePolling<{ rules: Rule[] }>(() => api.get('rules'), 0);
   const ruleProviders = usePolling<{ providers: RuleProvider[] }>(() => api.get('rule-providers'), 0);
@@ -51,6 +51,8 @@ export function RulesPage() {
   const deferred = useDeferredValue(query);
   const [limit, setLimit] = useState(300);
   const [providerBusy, setProviderBusy] = useState<string | null>(null);
+  const [customRules, setCustomRules] = useState(status?.settings.customRules ?? '');
+  const [rulesSaving, setRulesSaving] = useState(false);
 
   const items = rules.data?.rules ?? [];
   const filtered = useMemo(() => {
@@ -66,6 +68,25 @@ export function RulesPage() {
   const hits = items.reduce((total, rule) => total + (rule.extra?.hitCount ?? 0), 0);
   const running = status?.core.state === 'running';
   const providers = ruleProviders.data?.providers ?? [];
+  const savedRules = status?.settings.customRules ?? '';
+  const rulesDirty = customRules !== savedRules;
+
+  useEffect(() => {
+    setCustomRules(savedRules);
+  }, [savedRules]);
+
+  const saveCustomRules = async () => {
+    setRulesSaving(true);
+    try {
+      await api.patch('settings', { customRules }, { timeoutMs: 120000 });
+      await refreshStatus();
+      toast('自定义规则已保存，内核已重启', 'success');
+    } catch (error) {
+      toast(error instanceof Error ? error.message : '保存自定义规则失败', 'error');
+    } finally {
+      setRulesSaving(false);
+    }
+  };
 
   const updateProvider = async (name: string) => {
     setProviderBusy(name);
@@ -113,6 +134,34 @@ export function RulesPage() {
       {!running ? (
         <div className="rounded-xl border border-danger/15 bg-danger/6 px-4 py-3 text-xs text-danger">mihomo 当前未运行，规则列表不可用。</div>
       ) : null}
+
+      <Card>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line/8 pb-3">
+          <div className="flex items-center gap-2">
+            <FileCode2 className="h-4 w-4 text-accent" />
+            <h3 className="text-sm font-semibold text-ink">自定义规则</h3>
+            {rulesDirty ? <Badge tone="warning">未保存</Badge> : null}
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" icon={<RotateCcw className="h-3.5 w-3.5" />} disabled={!rulesDirty || rulesSaving} onClick={() => setCustomRules(savedRules)}>还原</Button>
+            <Button variant="primary" size="sm" icon={<Save className="h-3.5 w-3.5" />} loading={rulesSaving} disabled={!rulesDirty} onClick={() => { void saveCustomRules(); }}>保存</Button>
+          </div>
+        </div>
+        <div className="pt-3">
+          <p className="text-[11px] leading-relaxed text-muted">
+            每行一条 mihomo 规则，会插到订阅规则最前面，优先级最高。例如：
+            <code className="mono ml-1 rounded bg-surface2 px-1 py-0.5 text-[10px] text-ink">DOMAIN-SUFFIX,example.com,PROXY</code>
+          </p>
+          <textarea
+            value={customRules}
+            onChange={(event) => setCustomRules(event.target.value)}
+            rows={6}
+            placeholder={'DOMAIN-SUFFIX,example.com,PROXY\nIP-CIDR,1.2.3.0/24,DIRECT,no-resolve'}
+            className="focus-ring mt-2 w-full resize-y rounded-lg border border-line/10 bg-surface2 px-3 py-2 mono text-[11px] leading-relaxed text-ink placeholder:text-muted/40"
+          />
+          <p className="mt-1.5 text-[10px] text-muted/60">保存后内核会重启；引用了不存在的策略组或 RULE-SET 会导致配置加载失败。</p>
+        </div>
+      </Card>
 
       <Card padded={false} className="overflow-hidden">
         {rules.loading && !rules.data ? (
