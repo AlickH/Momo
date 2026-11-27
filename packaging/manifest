@@ -1,5 +1,5 @@
 appname=momo
-version=1.0.55
+version=1.0.56
 display_name=Momo
 desc=基于 mihomo 内核的飞牛 fnOS 原生代理，支持订阅管理、策略组选择、连接与规则查看。
 platform=@PLATFORM@
