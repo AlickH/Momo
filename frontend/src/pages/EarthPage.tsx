@@ -149,13 +149,17 @@ export function EarthPage() {
 
           {displayMarkers.length === 0 ? (
             <Card>
-              <EmptyState icon={<Globe2 className="h-5 w-5" />} title="暂无地理位置数据" description="产生到公网 IP 的连接后，这里会显示目标在地球上的位置。" />
+              <EmptyState
+                icon={<Globe2 className="h-5 w-5" />}
+                title={dataMode === 'nodes' ? '暂无节点位置数据' : '暂无地理位置数据'}
+                description={dataMode === 'nodes' ? '当前配置中没有可解析 server 地址的节点。' : '产生到公网 IP 的连接后，这里会显示目标在地球上的位置。'}
+              />
             </Card>
           ) : (
             <Card>
               <div className="flex items-center gap-2 border-b border-line/8 pb-2.5">
                 <MapPin className="h-4 w-4 text-accent" />
-                <h3 className="text-sm font-semibold text-ink">目标分布</h3>
+                <h3 className="text-sm font-semibold text-ink">{dataMode === 'nodes' ? '节点分布' : '目标分布'}</h3>
                 <span className="ml-auto text-[10px] text-muted/60">{dataMode === 'nodes' ? `${nodeData?.nodes.length ?? 0} 个节点` : origin ? `起点 ${origin.city || origin.country}` : resolving ? '正在定位起点…' : '起点未知'}</span>
               </div>
               {dataMode === 'nodes' ? (

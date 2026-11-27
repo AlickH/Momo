@@ -840,6 +840,7 @@ class MomoService {
 
     const servers = [...new Set(raw.map((item) => item.server))];
     const resolved = new Map();
+    const controller = this.core.controller;
     let cursor = 0;
     const workers = Array.from({ length: Math.min(12, servers.length) }, async () => {
       while (cursor < servers.length) {
@@ -849,6 +850,14 @@ class MomoService {
           continue;
         }
         try {
+          if (controller) {
+            const answer = await controller.queryDns(server, 'A');
+            const address = (answer?.Answer || []).find((item) => item.type === 1)?.data;
+            if (address && net.isIP(address)) {
+              resolved.set(server, address);
+              continue;
+            }
+          }
           const result = await dns.lookup(server, { family: 4 });
           resolved.set(server, result.address);
         } catch {

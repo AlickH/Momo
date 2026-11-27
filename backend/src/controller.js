@@ -123,6 +123,11 @@ class ControllerClient {
     return this.request('GET', '/group/weights');
   }
 
+  async queryDns(name, type = 'A') {
+    const query = new URLSearchParams({ name, type });
+    return this.request('GET', `/dns/query?${query}`, undefined, { timeoutMs: 8000 });
+  }
+
   async connections() {
     return this.request('GET', '/connections', undefined, { timeoutMs: 5000 });
   }
