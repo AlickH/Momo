@@ -94,10 +94,7 @@ export function TopologyPage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h2 className="text-sm font-semibold text-ink">网络拓扑</h2>
-          <p className="mt-0.5 text-[12px] text-muted">来源 IP → 规则匹配 → 代理链入口 → 代理链出口，2 秒刷新</p>
-        </div>
+        <p className="text-[12px] text-muted">来源 IP → 规则匹配 → 代理链入口 → 代理链出口，2 秒刷新</p>
         <div className="flex items-center gap-2">
           <Badge tone="info">{items.length} 活动连接</Badge>
           <Button variant="ghost" size="sm" icon={paused ? <Play className="h-3.5 w-3.5" /> : <Pause className="h-3.5 w-3.5" />} onClick={() => setPaused((value) => !value)}>{paused ? '继续' : '暂停'}</Button>

@@ -90,10 +90,7 @@ export function EarthPage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h2 className="text-sm font-semibold text-ink">地图</h2>
-          <p className="mt-0.5 text-[12px] text-muted">{viewMode === '3d' ? '当前连接目标的 3D 地理分布' : '当前连接目标的 2D 地理分布'}，IP 城市定位来自 IP2Location DB5</p>
-        </div>
+        <p className="text-[12px] text-muted">{viewMode === '3d' ? '当前连接目标的 3D 地理分布' : '当前连接目标的 2D 地理分布'}，IP 城市定位来自 IP2Location DB5</p>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-0.5 rounded-lg border border-line/10 bg-surface2 p-0.5">
             <button type="button" onClick={() => setViewMode('3d')} className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition ${viewMode === '3d' ? 'bg-surface text-ink shadow-sm' : 'text-muted hover:text-ink'}`}>3D 地球</button>
