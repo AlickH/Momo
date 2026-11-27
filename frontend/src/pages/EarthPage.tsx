@@ -5,7 +5,7 @@ import { api } from '../lib/api';
 import { Globe3D, type GlobeMarker } from '../components/Globe3D';
 import { Map2D } from '../components/Map2D';
 import { Badge, Button, Card, EmptyState, Skeleton } from '../components/ui';
-import type { ConnectionsData, GeoLocation } from '../types';
+import type { ConnectionsData, GeoLocation, NodeGeo } from '../types';
 
 interface Marker extends GeoLocation {
   count: number;
@@ -22,6 +22,9 @@ export function EarthPage() {
   const [origin, setOrigin] = useState<GlobeMarker | null>(null);
   const [resolving, setResolving] = useState(false);
   const [viewMode, setViewMode] = useState<'3d' | '2d'>('3d');
+  const [dataMode, setDataMode] = useState<'targets' | 'nodes'>('targets');
+  const [nodeData, setNodeData] = useState<{ nodes: NodeGeo[]; unresolved: number } | null>(null);
+  const [nodeLoading, setNodeLoading] = useState(false);
 
   const grouped = useMemo(() => {
     const map = new Map<string, Marker>();
@@ -86,23 +89,53 @@ export function EarthPage() {
     return () => { cancelled = true; };
   }, []);
 
+  useEffect(() => {
+    if (dataMode !== 'nodes' || nodeData || nodeLoading) return;
+    let cancelled = false;
+    setNodeLoading(true);
+    api.get<{ nodes: NodeGeo[]; unresolved: number }>('nodes/geo', { timeoutMs: 60000 })
+      .then((result) => { if (!cancelled) setNodeData(result); })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setNodeLoading(false); });
+    return () => { cancelled = true; };
+  }, [dataMode, nodeData, nodeLoading]);
+
+  const nodeMarkers = useMemo<GlobeMarker[]>(() => {
+    const map = new Map<string, GlobeMarker>();
+    for (const node of nodeData?.nodes ?? []) {
+      const key = `${node.lat.toFixed(3)},${node.lon.toFixed(3)}`;
+      const marker = map.get(key) ?? { lat: node.lat, lon: node.lon, city: node.city, country: node.country, countryCode: node.countryCode, count: 0, node: '' };
+      marker.count += 1;
+      marker.node = `${marker.count} 节点`;
+      map.set(key, marker);
+    }
+    return [...map.values()].sort((a, b) => b.count - a.count);
+  }, [nodeData]);
+
   const markers: GlobeMarker[] = grouped
     .map((marker) => ({ ...marker, ...(locations[marker.ip] ?? {}) }))
     .filter((marker) => Number.isFinite(marker.lat) && Number.isFinite(marker.lon) && (marker.lat !== 0 || marker.lon !== 0))
     .map((marker) => ({ lat: marker.lat, lon: marker.lon, city: marker.city, country: marker.country, countryCode: marker.countryCode, count: marker.count, node: marker.node }));
 
   const total = connections.data?.connections.length ?? 0;
+  const displayMarkers = dataMode === 'nodes' ? nodeMarkers : markers;
+  const displayOrigin = dataMode === 'nodes' ? null : origin;
+  const nodeTotal = nodeData?.nodes.length ?? 0;
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-[12px] text-muted">{viewMode === '3d' ? '当前连接目标的 3D 地理分布' : '当前连接目标的 2D 地理分布'}，IP 城市定位来自 IP2Location DB5</p>
+        <p className="text-[12px] text-muted">{dataMode === 'nodes' ? `节点服务器分布 · ${nodeTotal} 个节点${nodeData?.unresolved ? ` / ${nodeData.unresolved} 个未解析` : ''}` : `${viewMode === '3d' ? '当前连接目标的 3D' : '当前连接目标的 2D'}地理分布，IP 城市定位来自 IP2Location DB5`}</p>
         <div className="flex items-center gap-2">
+          <div className="flex items-center gap-0.5 rounded-lg border border-line/10 bg-surface2 p-0.5">
+            <button type="button" onClick={() => setDataMode('targets')} className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition ${dataMode === 'targets' ? 'bg-surface text-ink shadow-sm' : 'text-muted hover:text-ink'}`}>目标分布</button>
+            <button type="button" onClick={() => setDataMode('nodes')} className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition ${dataMode === 'nodes' ? 'bg-surface text-ink shadow-sm' : 'text-muted hover:text-ink'}`}>节点分布</button>
+          </div>
           <div className="flex items-center gap-0.5 rounded-lg border border-line/10 bg-surface2 p-0.5">
             <button type="button" onClick={() => setViewMode('3d')} className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition ${viewMode === '3d' ? 'bg-surface text-ink shadow-sm' : 'text-muted hover:text-ink'}`}>3D 地球</button>
             <button type="button" onClick={() => setViewMode('2d')} className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition ${viewMode === '2d' ? 'bg-surface text-ink shadow-sm' : 'text-muted hover:text-ink'}`}>2D 地图</button>
           </div>
-          <Badge tone="info">{total} 活动连接</Badge>
+          <Badge tone="info">{dataMode === 'nodes' ? `${nodeTotal} 节点` : `${total} 活动连接`}</Badge>
           <Button variant="ghost" size="sm" icon={<RefreshCw className="h-3.5 w-3.5" />} loading={connections.refreshing} onClick={() => { void connections.refresh(); }}>刷新</Button>
         </div>
       </div>
@@ -112,10 +145,10 @@ export function EarthPage() {
       ) : (
         <>
           <Card padded={false} className="overflow-hidden">
-            {viewMode === '3d' ? <Globe3D markers={markers} origin={origin} /> : <Map2D markers={markers} origin={origin} />}
+            {viewMode === '3d' ? <Globe3D markers={displayMarkers} origin={displayOrigin} /> : <Map2D markers={displayMarkers} origin={displayOrigin} countLabel={dataMode === 'nodes' ? '节点' : '连接'} />}
           </Card>
 
-          {markers.length === 0 ? (
+          {displayMarkers.length === 0 ? (
             <Card>
               <EmptyState icon={<Globe2 className="h-5 w-5" />} title="暂无地理位置数据" description="产生到公网 IP 的连接后，这里会显示目标在地球上的位置。" />
             </Card>
@@ -124,15 +157,15 @@ export function EarthPage() {
               <div className="flex items-center gap-2 border-b border-line/8 pb-2.5">
                 <MapPin className="h-4 w-4 text-accent" />
                 <h3 className="text-sm font-semibold text-ink">目标分布</h3>
-                <span className="ml-auto text-[10px] text-muted/60">{origin ? `起点 ${origin.city || origin.country}` : resolving ? '正在定位起点…' : '起点未知'}</span>
+                <span className="ml-auto text-[10px] text-muted/60">{dataMode === 'nodes' ? `${nodeData?.nodes.length ?? 0} 个节点` : origin ? `起点 ${origin.city || origin.country}` : resolving ? '正在定位起点…' : '起点未知'}</span>
               </div>
               <div className="mt-2 divide-y divide-line/5">
-                {markers.slice(0, 12).map((marker, index) => (
+                {displayMarkers.slice(0, 12).map((marker, index) => (
                   <div key={`${marker.lat}-${marker.lon}-${index}`} className="flex items-center gap-3 py-2 text-[11px]">
                     <span className="w-10 shrink-0 mono text-muted/60" title={marker.country}>{marker.countryCode || '—'}</span>
                     <span className="min-w-0 flex-1 truncate text-ink" title={marker.city || marker.country}>{marker.city || marker.country}</span>
-                    <span className="w-36 shrink-0 truncate text-right text-muted/60" title={marker.node}>{marker.node}</span>
-                    <span className="w-14 shrink-0 text-right text-muted/60">{marker.count} 连接</span>
+                    <span className="w-36 shrink-0 truncate text-right text-muted/60" title={marker.node}>{dataMode === 'targets' ? marker.node : ''}</span>
+                    <span className="w-14 shrink-0 text-right text-muted/60">{marker.count} {dataMode === 'nodes' ? '节点' : '连接'}</span>
                   </div>
                 ))}
               </div>

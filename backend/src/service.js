@@ -1,5 +1,8 @@
 const fs = require('node:fs/promises');
 const os = require('node:os');
+const dns = require('node:dns/promises');
+const net = require('node:net');
+const YAML = require('yaml');
 const path = require('node:path');
 const { execFile } = require('node:child_process');
 const { promisify } = require('node:util');
@@ -51,6 +54,7 @@ class MomoService {
     this.profileUpdateTimer = null;
     this.profileUpdateRunning = false;
     this.maintenanceTimer = null;
+    this.nodeGeoCache = { at: 0, value: null };
     this.lastProviderUpdate = 0;
     this.lastRuleProviderUpdate = 0;
     this.lastCoreRestart = 0;
@@ -798,6 +802,84 @@ class MomoService {
     } catch (error) {
       throw new AppError(`IP 检测失败：${error.message}`, { status: 502, code: 'ip_check_failed' });
     }
+  }
+
+  async getNodeGeo() {
+    if (this.nodeGeoCache.value && Date.now() - this.nodeGeoCache.at < 5 * 60 * 1000) {
+      return this.nodeGeoCache.value;
+    }
+    const entries = [];
+    const active = await this.profiles.activeContent().catch(() => null);
+    if (active) entries.push({ provider: '当前配置', content: active });
+    const files = await fs.readdir(this.coreDir).catch(() => []);
+    for (const file of files) {
+      if (!file.endsWith('.yaml') || file === 'config.yaml') continue;
+      try {
+        entries.push({ provider: file.replace(/\.yaml$/, ''), content: await fs.readFile(path.join(this.coreDir, file), 'utf8') });
+      } catch {
+        // Ignore unreadable provider cache files.
+      }
+    }
+
+    const raw = [];
+    for (const entry of entries) {
+      let parsed;
+      try {
+        parsed = YAML.parse(entry.content);
+      } catch {
+        continue;
+      }
+      for (const proxy of Array.isArray(parsed?.proxies) ? parsed.proxies : []) {
+        const name = String(proxy?.name || '');
+        const server = String(proxy?.server || '').replace(/^\[|\]$/g, '');
+        if (!server || !name) continue;
+        if (/剩余|套餐|到期|重置|官网|流量/.test(name)) continue;
+        raw.push({ name, server, type: String(proxy?.type || ''), provider: entry.provider });
+      }
+    }
+
+    const servers = [...new Set(raw.map((item) => item.server))];
+    const resolved = new Map();
+    let cursor = 0;
+    const workers = Array.from({ length: Math.min(12, servers.length) }, async () => {
+      while (cursor < servers.length) {
+        const server = servers[cursor++];
+        if (net.isIP(server)) {
+          resolved.set(server, server);
+          continue;
+        }
+        try {
+          const result = await dns.lookup(server, { family: 4 });
+          resolved.set(server, result.address);
+        } catch {
+          resolved.set(server, '');
+        }
+      }
+    });
+    await Promise.all(workers);
+
+    const ips = [...new Set([...resolved.values()].filter(Boolean))];
+    const { locations } = lookup(ips, { cityDbPath: path.join(this.env.geoSourceDir, 'IP2LOCATION-LITE-DB5.BIN') });
+    const nodes = raw.map((item) => {
+      const ip = resolved.get(item.server) || '';
+      const location = locations[ip];
+      return {
+        ...item,
+        ip,
+        city: location?.city || '',
+        country: location?.country || '',
+        countryCode: location?.countryCode || '',
+        lat: location?.lat ?? null,
+        lon: location?.lon ?? null,
+      };
+    });
+    const value = {
+      nodes: nodes.filter((node) => Number.isFinite(node.lat) && Number.isFinite(node.lon)),
+      unresolved: nodes.filter((node) => !Number.isFinite(node.lat) || !Number.isFinite(node.lon)).length,
+      updatedAt: new Date().toISOString(),
+    };
+    this.nodeGeoCache = { at: Date.now(), value };
+    return value;
   }
 
   async resolveGeo(ips) {

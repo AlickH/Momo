@@ -30,7 +30,7 @@ function clampView(view: ViewBox): ViewBox {
   };
 }
 
-export function Map2D({ markers, origin }: { markers: GlobeMarker[]; origin: GlobeMarker | null }) {
+export function Map2D({ markers, origin, countLabel = '连接' }: { markers: GlobeMarker[]; origin: GlobeMarker | null; countLabel?: string }) {
   const [view, setView] = useState<ViewBox>(DEFAULT_VIEW);
   const [hover, setHover] = useState<{ x: number; y: number; marker: GlobeMarker } | null>(null);
   const dragRef = useRef<{ x: number; y: number; view: ViewBox } | null>(null);
@@ -137,7 +137,7 @@ export function Map2D({ markers, origin }: { markers: GlobeMarker[]; origin: Glo
           style={{ left: hover.x + 12, top: hover.y + 12 }}
         >
           <div className="font-medium">{hover.marker.city || hover.marker.country}</div>
-          <div className="mt-0.5 text-muted">{hover.marker.countryCode} · {hover.marker.count} 连接</div>
+          <div className="mt-0.5 text-muted">{hover.marker.countryCode} · {hover.marker.count} {countLabel}</div>
           <div className="text-muted">节点：{hover.marker.node || 'DIRECT'}</div>
         </div>
       ) : null}

@@ -171,6 +171,19 @@ export interface PortForward {
   enabled: boolean;
 }
 
+export interface NodeGeo {
+  name: string;
+  server: string;
+  ip: string;
+  type: string;
+  provider: string;
+  city: string;
+  country: string;
+  countryCode: string;
+  lat: number;
+  lon: number;
+}
+
 export interface GeoLocation {
   ip: string;
   country: string;
