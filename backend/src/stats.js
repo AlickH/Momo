@@ -59,7 +59,7 @@ class StatsMonitor {
     const generation = ++this.generation;
     this.connectTraffic(controller, generation);
     this.connectMemory(controller, generation);
-    this.connectionsTimer = setInterval(() => { void this.pollConnections(); }, 5000);
+    this.connectionsTimer = setInterval(() => { void this.pollConnections(); }, 1000);
     this.connectionsTimer.unref();
     void this.pollConnections();
   }

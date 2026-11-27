@@ -19,6 +19,8 @@ import {
   Activity,
   Globe2,
   RefreshCw,
+  ScrollText,
+  Sparkles,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { usePolling } from '../hooks/usePolling';
@@ -27,7 +29,7 @@ import { api } from '../lib/api';
 import { useToast } from '../context/ToastContext';
 import { formatBytes, formatDate, formatExpiry, formatNumber, formatRate, formatUptime, percent, shortCoreVersion, timeAgo } from '../lib/format';
 import { TrafficChart } from '../components/TrafficChart';
-import { Sparkline } from '../components/Sparkline';
+import { MiniChart } from '../components/MiniChart';
 import { Badge, Button, Card, ConfirmDialog, ProgressBar, Skeleton, StatusDot } from '../components/ui';
 import type { LogEntry, ProxiesData, SmartWeight } from '../types';
 
@@ -168,10 +170,10 @@ export function OverviewPage() {
           <Card className="overflow-hidden !p-0">
             <div className="flex flex-wrap items-start justify-between gap-4 px-5 pt-5">
               <div>
-                <div className="flex items-center gap-2">
-                  <Radio className="h-3.5 w-3.5 text-accent" />
-                  <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">实时流量</span>
-                </div>
+                <h3 className="flex items-center gap-2 text-sm font-semibold text-ink">
+                  <Radio className="h-4 w-4 text-accent" />
+                  实时流量
+                </h3>
                 <div className="mt-3 flex flex-wrap items-end gap-x-8 gap-y-3">
                   <div>
                     <div className="flex items-center gap-1.5 text-[11px] text-muted">
@@ -221,8 +223,8 @@ export function OverviewPage() {
                   <span className="text-muted">内存占用</span>
                   <span className="text-ink">{formatBytes(traffic?.memory ?? 0)}</span>
                 </div>
-                <div className="mt-2 h-[46px]">
-                  <Sparkline values={(traffic?.memoryHistory ?? []).slice(-60).map((point) => point.value)} color="rgb(var(--chart-down))" />
+                <div className="mt-2 h-[52px]">
+                  <MiniChart history={traffic?.memoryHistory ?? []} colorVar="--chart-down" floor={64 * 1024 * 1024} format={formatBytes} />
                 </div>
               </div>
               <div>
@@ -230,8 +232,8 @@ export function OverviewPage() {
                   <span className="text-muted">活动连接</span>
                   <span className="text-ink">{formatNumber(status!.connections)}</span>
                 </div>
-                <div className="mt-2 h-[46px]">
-                  <Sparkline values={(traffic?.connectionsHistory ?? []).slice(-60).map((point) => point.value)} color="rgb(var(--accent))" />
+                <div className="mt-2 h-[52px]">
+                  <MiniChart history={traffic?.connectionsHistory ?? []} colorVar="--accent" floor={10} format={formatNumber} />
                 </div>
               </div>
             </div>
@@ -240,7 +242,7 @@ export function OverviewPage() {
           <Card>
             <div className="flex items-center justify-between gap-3">
               <div>
-                <h3 className="text-sm font-semibold text-ink">策略组</h3>
+                <h3 className="flex items-center gap-2 text-sm font-semibold text-ink"><Waypoints className="h-4 w-4 text-accent" />策略组</h3>
                 <p className="mt-0.5 text-[12px] text-muted">当前节点选择与自动策略</p>
               </div>
               <Link to="/proxies" className="flex items-center gap-1 text-[12px] font-medium text-accent hover:underline">
@@ -277,7 +279,7 @@ export function OverviewPage() {
           <Card>
             <div className="flex items-start justify-between">
               <div>
-                <h3 className="text-sm font-semibold text-ink">内核状态</h3>
+                <h3 className="flex items-center gap-2 text-sm font-semibold text-ink"><Cpu className="h-4 w-4 text-accent" />内核状态</h3>
                 <p className="mt-0.5 text-[12px] text-muted">mihomo 内核</p>
               </div>
               <Link to="/settings" className="rounded-lg p-1.5 text-muted transition hover:bg-surface2 hover:text-ink" aria-label="内核设置">
@@ -326,7 +328,7 @@ export function OverviewPage() {
           <Card>
             <div className="flex items-start justify-between">
               <div>
-                <h3 className="text-sm font-semibold text-ink">当前配置</h3>
+                <h3 className="flex items-center gap-2 text-sm font-semibold text-ink"><Layers className="h-4 w-4 text-accent" />当前配置</h3>
                 <p className="mt-0.5 text-[12px] text-muted">当前使用</p>
               </div>
               <Link to="/profiles" className="flex items-center gap-1 text-[12px] text-accent hover:underline">管理 <ArrowRight className="h-3 w-3" /></Link>
@@ -406,7 +408,7 @@ export function OverviewPage() {
             <Card>
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-semibold text-ink">Smart 权重</h3>
+                  <h3 className="flex items-center gap-2 text-sm font-semibold text-ink"><Sparkles className="h-4 w-4 text-accent" />Smart 权重</h3>
                   <p className="mt-0.5 text-[12px] text-muted">smart 内核的节点评分</p>
                 </div>
                 <Badge tone="info">Smart</Badge>
@@ -431,7 +433,7 @@ export function OverviewPage() {
 
           <Card>
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-ink">最近日志</h3>
+              <h3 className="flex items-center gap-2 text-sm font-semibold text-ink"><ScrollText className="h-4 w-4 text-accent" />最近日志</h3>
               <Link to="/logs" className="text-[12px] text-accent hover:underline">查看全部</Link>
             </div>
             <div className="mt-3 space-y-2">
