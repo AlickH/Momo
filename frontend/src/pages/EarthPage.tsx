@@ -12,6 +12,8 @@ interface Marker extends GeoLocation {
   download: number;
   upload: number;
   hosts: string[];
+  nodeCounts: Record<string, number>;
+  node?: string;
 }
 
 export function EarthPage() {
@@ -37,11 +39,15 @@ export function EarthPage() {
         download: 0,
         upload: 0,
         hosts: [],
+        nodeCounts: {},
       };
       marker.count += 1;
       marker.download += item.download;
       marker.upload += item.upload;
       if (item.host && !marker.hosts.includes(item.host)) marker.hosts.push(item.host);
+      const chain = item.chains?.[0] || 'DIRECT';
+      marker.nodeCounts[chain] = (marker.nodeCounts[chain] ?? 0) + 1;
+      marker.node = Object.entries(marker.nodeCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'DIRECT';
       map.set(ip, marker);
     }
     return [...map.values()].sort((a, b) => b.count - a.count).slice(0, 60);
@@ -83,7 +89,7 @@ export function EarthPage() {
   const markers: GlobeMarker[] = grouped
     .map((marker) => ({ ...marker, ...(locations[marker.ip] ?? {}) }))
     .filter((marker) => Number.isFinite(marker.lat) && Number.isFinite(marker.lon) && (marker.lat !== 0 || marker.lon !== 0))
-    .map((marker) => ({ lat: marker.lat, lon: marker.lon, city: marker.city, country: marker.country, count: marker.count }));
+    .map((marker) => ({ lat: marker.lat, lon: marker.lon, city: marker.city, country: marker.country, count: marker.count, node: marker.node }));
 
   const total = connections.data?.connections.length ?? 0;
 
@@ -125,6 +131,7 @@ export function EarthPage() {
                   <div key={`${marker.lat}-${marker.lon}-${index}`} className="flex items-center gap-3 py-2 text-[11px]">
                     <span className="w-14 shrink-0 mono text-muted/60">{marker.country}</span>
                     <span className="min-w-0 flex-1 truncate text-ink">{marker.city || marker.country}</span>
+                    <span className="max-w-[140px] shrink-0 truncate text-muted/60">{marker.node}</span>
                     <span className="shrink-0 text-muted/60">{marker.count} 连接</span>
                   </div>
                 ))}

@@ -11,6 +11,7 @@ export interface GlobeMarker {
   city: string;
   country: string;
   count: number;
+  node?: string;
 }
 
 const RADIUS = 1.8;
@@ -160,7 +161,7 @@ export function Globe3D({ markers, origin }: { markers: GlobeMarker[]; origin: G
       if (label && (marker.city || marker.country)) {
         const element = document.createElement('div');
         element.className = 'rounded bg-black/55 px-1.5 py-0.5 text-[9px] text-white/85 backdrop-blur-sm';
-        element.textContent = marker.city || marker.country;
+        element.textContent = [marker.city || marker.country, marker.node].filter(Boolean).join(' · ');
         const object = new CSS2DObject(element);
         object.position.copy(point.clone().multiplyScalar(1.035));
         state.markerGroup.add(object);
