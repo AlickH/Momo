@@ -6,6 +6,15 @@ Momo 以 fnOS Native 进程方式运行：Node.js 后端托管 mihomo、管理�
 
 ![Momo 概览](docs/screenshots/overview-light.png)
 
+## 下载
+
+前往 [Releases](https://github.com/AlickH/Momo/releases) 下载对应架构的 FPK：
+
+- `momo_<version>_x86.fpk`：x86_64
+- `momo_<version>_arm.fpk`：ARM64
+
+当前发布包为**未签名包**，仅建议本地调试 / 自用安装。安装与权限说明见下方「安装」章节。
+
 | 代理 | 订阅 |
 | --- | --- |
 | ![代理](docs/screenshots/proxies-light.png) | ![订阅](docs/screenshots/profiles-light.png) |
