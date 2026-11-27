@@ -171,6 +171,15 @@ export interface PortForward {
   enabled: boolean;
 }
 
+export interface GeoLocation {
+  ip: string;
+  country: string;
+  countryCode: string;
+  city: string;
+  lat: number;
+  lon: number;
+}
+
 export interface DdnsStatus {
   enabled: boolean;
   provider: string;

@@ -50,6 +50,7 @@ export function Layout() {
           c: '/connections',
           r: '/rules',
           t: '/topology',
+          m: '/earth',
           l: '/logs',
           e: '/settings',
         };
@@ -125,6 +126,7 @@ export function Layout() {
             ['g c', '连接'],
             ['g r', '规则'],
             ['g t', '拓扑'],
+            ['g m', '地图'],
             ['g l', '日志'],
             ['g e', '设置'],
             ['?', '打开/关闭快捷键'],

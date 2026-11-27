@@ -11,6 +11,7 @@ const { TelegramBot } = require('./telegram');
 const { DdnsManager } = require('./ddns');
 const { checkIp } = require('./ip-check');
 const { PortForwardManager } = require('./port-forward');
+const { lookup } = require('./geo');
 const { TransparentManager } = require('./transparent');
 const { ProfileManager, fetchSubscription } = require('./profiles');
 const { SettingsStore } = require('./settings');
@@ -780,20 +781,28 @@ class MomoService {
     return { updated };
   }
 
-  async checkIp() {
-    let auth = '';
+  async getProxyAuth() {
     try {
       const parsed = parseProfile(await fs.readFile(this.configPath, 'utf8')).config;
       const entry = Array.isArray(parsed.authentication) ? parsed.authentication[0] : null;
-      if (typeof entry === 'string') auth = entry;
+      return typeof entry === 'string' ? entry : '';
     } catch {
-      auth = '';
+      return '';
     }
+  }
+
+  async checkIp() {
+    const auth = await this.getProxyAuth();
     try {
       return await checkIp(this.settings.get().mixedPort, auth);
     } catch (error) {
       throw new AppError(`IP 检测失败：${error.message}`, { status: 502, code: 'ip_check_failed' });
     }
+  }
+
+  async resolveGeo(ips) {
+    if (!Array.isArray(ips)) throw badRequest('IP 列表无效');
+    return lookup(ips.map((ip) => String(ip)).filter(Boolean), { dbPath: path.join(this.coreDir, 'geoip.metadb') });
   }
 
   async getSmartWeights() {
