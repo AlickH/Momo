@@ -100,6 +100,11 @@ test('buildRuntimeConfig enables and disables TUN/Redir from app settings', () =
   assert.equal(disabled['redir-port'], 0);
 });
 
+test('buildRuntimeConfig prepends custom rules', () => {
+  const config = YAML.parse(buildRuntimeConfig({ rules: ['MATCH,DIRECT'] }, { ...SETTINGS, customRules: 'DOMAIN-SUFFIX,example.com,PROXY\n# comment\n' }, { controllerPort: 19090, secret: 'x' }));
+  assert.deepEqual(config.rules, ['DOMAIN-SUFFIX,example.com,PROXY', 'MATCH,DIRECT']);
+});
+
 test('buildRuntimeConfig supplies a minimal direct config when no profile exists', () => {
   const text = buildRuntimeConfig(null, { ...SETTINGS, mode: 'global', logLevel: 'warning' }, { controllerPort: 12345, secret: 'x' });
   const config = YAML.parse(text);

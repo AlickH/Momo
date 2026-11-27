@@ -39,6 +39,7 @@ test('validateSettings applies defaults and rejects invalid values', () => {
     ddnsUrl: '',
     ddnsRecordType: 'A',
     ddnsIntervalMinutes: 5,
+    customRules: '',
   });
   assert.equal(validateSettings({ mixedPort: 1080 }).mixedPort, 1080);
   assert.throws(() => validateSettings({ mixedPort: 80 }), /端口/);

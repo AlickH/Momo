@@ -49,6 +49,7 @@ export interface Settings {
   ddnsUrl: string;
   ddnsRecordType: 'A' | 'AAAA';
   ddnsIntervalMinutes: number;
+  customRules: string;
 }
 
 export interface SubscriptionInfo {

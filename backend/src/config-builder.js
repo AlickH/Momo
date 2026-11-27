@@ -64,6 +64,14 @@ function parseProfile(content) {
   return { config, content: finalContent, proxyCount, providerCount };
 }
 
+function parseCustomRules(value) {
+  if (typeof value !== 'string') return [];
+  return value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith('#'));
+}
+
 function buildRuntimeConfig(profile, settings, { controllerPort, secret, controllerHost = '127.0.0.1' }) {
   const base = profile ? structuredClone(profile) : {};
   const config = { ...base };
@@ -97,6 +105,11 @@ function buildRuntimeConfig(profile, settings, { controllerPort, secret, control
       'store-fake-ip': true,
     },
   });
+
+  const customRules = parseCustomRules(settings.customRules);
+  if (customRules.length) {
+    config.rules = [...customRules, ...(Array.isArray(config.rules) ? config.rules : [])];
+  }
 
   const proxyMode = settings.proxyMode || (settings.tunEnabled ? 'tun' : 'off');
   if (isPlainObject(config.tun) || proxyMode === 'tun') {

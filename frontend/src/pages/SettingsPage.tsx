@@ -27,6 +27,7 @@ import {
   Send,
   Globe,
   CalendarClock,
+  FileCode2,
 } from 'lucide-react';
 import { useApp, type ThemeMode } from '../context/AppContext';
 import { api } from '../lib/api';
@@ -641,6 +642,27 @@ export function SettingsPage() {
                   <option value={168}>每周</option>
                 </select>
               </SettingRow>
+            </div>
+          </Card>
+
+          <Card>
+            <div className="flex items-center gap-2 border-b border-line/8 pb-3">
+              <FileCode2 className="h-4 w-4 text-accent" />
+              <h3 className="text-sm font-semibold text-ink">自定义规则</h3>
+            </div>
+            <div className="pt-3">
+              <p className="text-[11px] leading-relaxed text-muted">
+                每行一条 mihomo 规则，会插到订阅规则最前面，优先级最高。例如：
+                <code className="mono ml-1 rounded bg-surface2 px-1 py-0.5 text-[10px] text-ink">DOMAIN-SUFFIX,example.com,PROXY</code>
+              </p>
+              <textarea
+                value={form.customRules}
+                onChange={(event) => setForm((prev) => ({ ...prev, customRules: event.target.value }))}
+                rows={6}
+                placeholder={'DOMAIN-SUFFIX,example.com,PROXY\nIP-CIDR,1.2.3.0/24,DIRECT,no-resolve'}
+                className="focus-ring mt-2 w-full resize-y rounded-lg border border-line/10 bg-surface2 px-3 py-2 mono text-[11px] leading-relaxed text-ink placeholder:text-muted/40"
+              />
+              <p className="mt-1.5 text-[10px] text-muted/60">保存后内核会重启；引用了不存在的策略组或 RULE-SET 会导致配置加载失败。</p>
             </div>
           </Card>
 

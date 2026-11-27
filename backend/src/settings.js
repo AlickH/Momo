@@ -39,6 +39,7 @@ const DEFAULTS = Object.freeze({
   ddnsUrl: '',
   ddnsRecordType: 'A',
   ddnsIntervalMinutes: 5,
+  customRules: '',
 });
 
 const TUN_STACKS = new Set(['gvisor', 'system', 'mixed']);
@@ -127,6 +128,11 @@ function validateSettings(input) {
       if (typeof input[key] !== 'boolean') errors.push(`${key} 必须是布尔值`);
       else result[key] = input[key];
     }
+  }
+  if (input.customRules !== undefined) {
+    if (typeof input.customRules !== 'string') errors.push('customRules 必须是字符串');
+    else if (input.customRules.length > 65536) errors.push('自定义规则不能超过 64 KB');
+    else result.customRules = input.customRules;
   }
   if (input.ddnsEnabled !== undefined) {
     if (typeof input.ddnsEnabled !== 'boolean') errors.push('ddnsEnabled 必须是布尔值');
