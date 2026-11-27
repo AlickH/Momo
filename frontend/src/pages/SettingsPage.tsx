@@ -528,6 +528,19 @@ export function SettingsPage() {
                   className="focus-ring h-9 w-[280px] max-w-full rounded-lg border border-line/10 bg-surface2 px-2.5 text-xs text-ink placeholder:text-muted/50"
                 />
               </SettingRow>
+              <SettingRow title="IP 检测接口" description="概览 IP 检测卡片使用的接口。自动模式会依次尝试多个接口。">
+                <select
+                  value={form.ipCheckApi}
+                  onChange={(event) => setForm((prev) => ({ ...prev, ipCheckApi: event.target.value as Settings['ipCheckApi'] }))}
+                  className="focus-ring h-9 w-[180px] rounded-lg border border-line/10 bg-surface2 px-2 text-xs text-ink"
+                >
+                  <option value="auto">自动</option>
+                  <option value="ipip.net">ipip.net</option>
+                  <option value="ip.sb">ip.sb</option>
+                  <option value="ipwho.is">ipwho.is</option>
+                  <option value="ipapi.is">ipapi.is</option>
+                </select>
+              </SettingRow>
               <SettingRow title="测速超时" description="单个节点/策略组的测速超时，单位毫秒。">
                 <input
                   type="number"

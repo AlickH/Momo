@@ -1,6 +1,6 @@
 {
   "name": "momo",
-  "version": "1.0.69",
+  "version": "1.0.70",
   "private": true,
   "description": "Mihomo proxy app for fnOS",
   "scripts": {

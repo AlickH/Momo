@@ -798,7 +798,8 @@ class MomoService {
   async checkIp() {
     const auth = await this.getProxyAuth();
     try {
-      return await checkIp(this.settings.get().mixedPort, auth);
+      const settings = this.settings.get();
+      return await checkIp(settings.mixedPort, auth, settings.ipCheckApi);
     } catch (error) {
       throw new AppError(`IP 检测失败：${error.message}`, { status: 502, code: 'ip_check_failed' });
     }

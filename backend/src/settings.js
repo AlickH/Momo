@@ -23,6 +23,7 @@ const DEFAULTS = Object.freeze({
   lanTransparent: false,
   tproxyPort: 7893,
   testUrl: 'http://www.gstatic.com/generate_204',
+  ipCheckApi: 'auto',
   testTimeout: 5000,
   tunStack: 'gvisor',
   tunAutoRoute: true,
@@ -50,6 +51,7 @@ const TUN_STACKS = new Set(['gvisor', 'system', 'mixed']);
 const PROXY_MODES = new Set(['off', 'tun', 'redir', 'tproxy']);
 
 const MODES = new Set(['rule', 'global', 'direct']);
+const IP_CHECK_APIS = new Set(['auto', 'ipip.net', 'ip.sb', 'ipwho.is', 'ipapi.is']);
 const LOG_LEVELS = new Set(['debug', 'info', 'warning', 'error', 'silent']);
 
 function validateSettings(input) {
@@ -109,6 +111,10 @@ function validateSettings(input) {
   if (input.proxyMode !== undefined) {
     if (!PROXY_MODES.has(input.proxyMode)) errors.push('透明代理模式无效');
     else result.proxyMode = input.proxyMode;
+  }
+  if (input.ipCheckApi !== undefined) {
+    if (!IP_CHECK_APIS.has(input.ipCheckApi)) errors.push('IP 检测接口无效');
+    else result.ipCheckApi = input.ipCheckApi;
   }
   if (input.testUrl !== undefined) {
     if (typeof input.testUrl !== 'string' || !/^https?:\/\//i.test(input.testUrl.trim())) {

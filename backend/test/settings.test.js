@@ -23,6 +23,7 @@ test('validateSettings applies defaults and rejects invalid values', () => {
     lanTransparent: false,
     tproxyPort: 7893,
     testUrl: 'http://www.gstatic.com/generate_204',
+    ipCheckApi: 'auto',
     testTimeout: 5000,
     tunStack: 'gvisor',
     tunAutoRoute: true,
@@ -60,6 +61,7 @@ test('validateSettings applies defaults and rejects invalid values', () => {
   assert.throws(() => validateSettings({ redirPort: 53 }), /Redir 端口/);
   assert.equal(validateSettings({ testTimeout: 3000 }).testTimeout, 3000);
   assert.throws(() => validateSettings({ testUrl: 'ftp://example.com' }), /测速地址/);
+  assert.throws(() => validateSettings({ ipCheckApi: 'invalid' }), /IP 检测接口/);
   assert.equal(validateSettings({ externalController: true, externalControllerPort: 9090 }).externalControllerPort, 9090);
   assert.throws(() => validateSettings({ externalControllerPort: 80 }), /外部控制器端口/);
 });

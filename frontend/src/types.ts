@@ -33,6 +33,7 @@ export interface Settings {
   lanTransparent: boolean;
   tproxyPort: number;
   testUrl: string;
+  ipCheckApi: 'auto' | 'ipip.net' | 'ip.sb' | 'ipwho.is' | 'ipapi.is';
   testTimeout: number;
   tunStack: 'gvisor' | 'system' | 'mixed';
   tunAutoRoute: boolean;
@@ -134,6 +135,7 @@ export interface ProxyGroup {
   icon: string;
   hidden: boolean;
   testUrl: string;
+  ipCheckApi: 'auto' | 'ipip.net' | 'ip.sb' | 'ipwho.is' | 'ipapi.is';
 }
 
 export interface ProxyNode {
