@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Globe2, MapPin, RefreshCw } from 'lucide-react';
 import { usePolling } from '../hooks/usePolling';
 import { api } from '../lib/api';
+import { readIpCache, writeIpCache } from '../lib/ip-cache';
 import { Globe3D, type GlobeMarker } from '../components/Globe3D';
 import { Map2D } from '../components/Map2D';
 import { Badge, Button, Card, EmptyState, Skeleton } from '../components/ui';
@@ -74,10 +75,16 @@ export function EarthPage() {
     let cancelled = false;
     const loadOrigin = async () => {
       try {
-        const result = await api.post<{ proxyIp: string }>('ip-check', undefined, { timeoutMs: 30000 });
-        if (!result.proxyIp) return;
-        const geo = await api.post<{ locations: Record<string, GeoLocation> }>('geo/resolve', { ips: [result.proxyIp] }, { timeoutMs: 15000 });
-        const location = geo.locations[result.proxyIp];
+        const cached = readIpCache();
+        let proxyIp = cached?.proxyIp || '';
+        if (!proxyIp) {
+          const result = await api.post<{ proxyIp: string; directIp: string; same: boolean; checkedAt: string }>('ip-check', undefined, { timeoutMs: 30000 });
+          proxyIp = result.proxyIp;
+          if (proxyIp) writeIpCache(result);
+        }
+        if (!proxyIp) return;
+        const geo = await api.post<{ locations: Record<string, GeoLocation> }>('geo/resolve', { ips: [proxyIp] }, { timeoutMs: 15000 });
+        const location = geo.locations[proxyIp];
         if (!cancelled && location) {
           setOrigin({ lat: location.lat, lon: location.lon, city: location.city, country: location.country, count: 0 });
         }

@@ -28,6 +28,7 @@ import { useNow } from '../hooks/useNow';
 import { api } from '../lib/api';
 import { useToast } from '../context/ToastContext';
 import { formatBytes, formatDate, formatExpiry, formatNumber, formatRate, formatUptime, percent, shortCoreVersion, timeAgo } from '../lib/format';
+import { readIpCache, writeIpCache, type IpCheckResult } from '../lib/ip-cache';
 import { TrafficChart } from '../components/TrafficChart';
 import { MiniChart } from '../components/MiniChart';
 import { Badge, Button, Card, ConfirmDialog, Modal, ProgressBar, Skeleton, StatusDot } from '../components/ui';
@@ -115,7 +116,7 @@ export function OverviewPage() {
   const now = useNow(1000);
   const [coreBusy, setCoreBusy] = useState(false);
   const [ipBusy, setIpBusy] = useState(false);
-  const [ipResult, setIpResult] = useState<{ proxyIp: string; directIp: string; same: boolean; checkedAt: string } | null>(null);
+  const [ipResult, setIpResult] = useState<IpCheckResult | null>(() => readIpCache());
   const [cardsOpen, setCardsOpen] = useState(false);
 
   useEffect(() => {
@@ -421,7 +422,9 @@ export function OverviewPage() {
                 onClick={async () => {
                   setIpBusy(true);
                   try {
-                    setIpResult(await api.post('ip-check', undefined, { timeoutMs: 30000 }));
+                    const result = await api.post<IpCheckResult>('ip-check', undefined, { timeoutMs: 30000 });
+                    setIpResult(result);
+                    writeIpCache(result);
                   } catch (error) {
                     toast(error instanceof Error ? error.message : 'IP 检测失败', 'error');
                   } finally {
@@ -438,6 +441,7 @@ export function OverviewPage() {
                   <div className="flex items-center justify-between text-[11px]"><span className="text-muted">代理出口</span><span className="mono text-ink">{ipResult.proxyIp || '—'}</span></div>
                   <div className="flex items-center justify-between text-[11px]"><span className="text-muted">直连出口</span><span className="mono text-ink">{ipResult.directIp || '—'}</span></div>
                   <div className="flex items-center justify-between text-[11px]"><span className="text-muted">状态</span><span className={ipResult.same ? 'text-warning' : 'text-success'}>{ipResult.same ? '与直连相同' : '已走代理'}</span></div>
+                  <div className="text-right text-[9px] text-muted/50">检测于 {new Date(ipResult.checkedAt).toLocaleString('zh-CN', { hour12: false })}</div>
                 </>
               ) : <p className="py-2 text-center text-[11px] text-muted">点击检测获取当前出口 IP</p>}
             </div>
