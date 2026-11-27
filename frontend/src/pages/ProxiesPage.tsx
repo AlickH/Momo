@@ -10,6 +10,9 @@ import {
   ServerCog,
   Star,
   Zap,
+  Folder,
+  Plus,
+  Trash2,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { usePolling } from '../hooks/usePolling';
@@ -17,7 +20,7 @@ import { api } from '../lib/api';
 import { useToast } from '../context/ToastContext';
 import { cn } from '../lib/cn';
 import { formatDate, timeAgo } from '../lib/format';
-import { Badge, Button, Card, EmptyState, SearchInput, Skeleton } from '../components/ui';
+import { Badge, Button, Card, EmptyState, Modal, SearchInput, Skeleton } from '../components/ui';
 import { DelayBadge } from '../components/DelayBadge';
 import { LatencyBars } from '../components/LatencyBars';
 import type { ProxiesData, Provider, ProxyGroup } from '../types';
@@ -213,6 +216,61 @@ export function ProxiesPage() {
   const [collapseSignal, setCollapseSignal] = useState(0);
   const [latencyHistory, setLatencyHistory] = useState<Record<string, number[]>>({});
   const latencyAtRef = useRef(0);
+  const [folders, setFolders] = useState<{ id: string; name: string }[]>(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem('momo-group-folders') || '[]');
+      return Array.isArray(stored) ? stored : [];
+    } catch {
+      return [];
+    }
+  });
+  const [folderMap, setFolderMap] = useState<Record<string, string>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('momo-group-folder-map') || '{}');
+    } catch {
+      return {};
+    }
+  });
+  const [collapsedFolders, setCollapsedFolders] = useState<string[]>(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem('momo-group-folders-collapsed') || '[]');
+      return Array.isArray(stored) ? stored : [];
+    } catch {
+      return [];
+    }
+  });
+  const [foldersOpen, setFoldersOpen] = useState(false);
+  const [newFolder, setNewFolder] = useState('');
+
+  const saveFolders = (next: { id: string; name: string }[]) => {
+    setFolders(next);
+    localStorage.setItem('momo-group-folders', JSON.stringify(next));
+  };
+  const saveFolderMap = (next: Record<string, string>) => {
+    setFolderMap(next);
+    localStorage.setItem('momo-group-folder-map', JSON.stringify(next));
+  };
+  const saveCollapsedFolders = (next: string[]) => {
+    setCollapsedFolders(next);
+    localStorage.setItem('momo-group-folders-collapsed', JSON.stringify(next));
+  };
+  const addFolder = () => {
+    const name = newFolder.trim();
+    if (!name) return;
+    saveFolders([...folders, { id: crypto.randomUUID(), name }]);
+    setNewFolder('');
+  };
+  const removeFolder = (id: string) => {
+    saveFolders(folders.filter((folder) => folder.id !== id));
+    saveFolderMap(Object.fromEntries(Object.entries(folderMap).filter(([, value]) => value !== id)));
+  };
+  const assignFolder = (group: string, folderId: string) => {
+    const next = { ...folderMap };
+    if (folderId) next[group] = folderId;
+    else delete next[group];
+    saveFolderMap(next);
+  };
+
   const [prefs, setPrefs] = useState<{ pinned: string[]; icons: Record<string, string> }>(() => {
     try {
       const stored = JSON.parse(localStorage.getItem('momo-group-prefs') || '{}');
@@ -473,6 +531,31 @@ export function ProxiesPage() {
     }
   };
 
+  const renderGroup = (group: ProxyGroup) => (
+    <GroupCard
+      key={group.name}
+      group={group}
+      data={proxies.data!}
+      query={query}
+      delays={delays}
+      testing={testing}
+      onTestGroup={(target) => { void testGroup(target); }}
+      onTestNode={(name) => { void testNode(name); }}
+      onSelect={(target, name) => { void selectNode(target, name); }}
+      collapseSignal={collapseSignal}
+      latency={latencyHistory[group.name] ?? []}
+      pinned={prefs.pinned.includes(group.name)}
+      icon={prefs.icons[group.name] ?? ''}
+      onTogglePin={togglePin}
+      onCycleIcon={cycleIcon}
+    />
+  );
+
+  const folderSections = folders
+    .map((folder) => ({ ...folder, groups: sortedGroups.filter((group) => folderMap[group.name] === folder.id) }))
+    .filter((folder) => folder.groups.length > 0);
+  const topLevelGroups = sortedGroups.filter((group) => !folders.some((folder) => folder.id === folderMap[group.name]));
+
   if (!running && !proxies.data) {
     return (
       <Card className="p-8">
@@ -494,6 +577,12 @@ export function ProxiesPage() {
           <span className="hidden text-[11px] text-muted md:inline">
             {groups.length} 策略组 · {realNodeCount} 节点
           </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={<Folder className="h-3.5 w-3.5" />}
+            onClick={() => setFoldersOpen(true)}
+          >文件夹</Button>
           <select
             value={sortMode}
             onChange={(event) => {
@@ -543,27 +632,41 @@ export function ProxiesPage() {
         </div>
       ) : groups.length > 0 ? (
         <>
-          <div className="grid items-start gap-4 xl:grid-cols-2">
-            {sortedGroups.map((group) => (
-              <GroupCard
-                key={group.name}
-                group={group}
-                data={proxies.data!}
-                query={query}
-                delays={delays}
-                testing={testing}
-                onTestGroup={(target) => { void testGroup(target); }}
-                onTestNode={(name) => { void testNode(name); }}
-                onSelect={(target, name) => { void selectNode(target, name); }}
-                collapseSignal={collapseSignal}
-                latency={latencyHistory[group.name] ?? []}
-                pinned={prefs.pinned.includes(group.name)}
-                icon={prefs.icons[group.name] ?? ''}
-                onTogglePin={togglePin}
-                onCycleIcon={cycleIcon}
-              />
-            ))}
-          </div>
+          {query.trim() ? (
+            <div className="grid items-start gap-4 xl:grid-cols-2">
+              {sortedGroups.map((group) => renderGroup(group))}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {topLevelGroups.length > 0 ? (
+                <div className="grid items-start gap-4 xl:grid-cols-2">
+                  {topLevelGroups.map((group) => renderGroup(group))}
+                </div>
+              ) : null}
+              {folderSections.map((folder) => {
+                const collapsed = collapsedFolders.includes(folder.id);
+                return (
+                  <div key={folder.id}>
+                    <button
+                      type="button"
+                      onClick={() => saveCollapsedFolders(collapsed ? collapsedFolders.filter((id) => id !== folder.id) : [...collapsedFolders, folder.id])}
+                      className="mb-2 flex w-full items-center gap-2 rounded-lg border border-line/8 bg-surface2/35 px-3 py-2 text-left transition hover:bg-surface2/60"
+                    >
+                      <Folder className="h-3.5 w-3.5 text-accent" />
+                      <span className="text-[12px] font-medium text-ink">{folder.name}</span>
+                      <span className="text-[10px] text-muted/60">{folder.groups.length} 个策略组</span>
+                      {collapsed ? <ChevronDown className="ml-auto h-3.5 w-3.5 text-muted" /> : <ChevronUp className="ml-auto h-3.5 w-3.5 text-muted" />}
+                    </button>
+                    {!collapsed ? (
+                      <div className="grid items-start gap-4 xl:grid-cols-2">
+                        {folder.groups.map((group) => renderGroup(group))}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          )}
           {filteredGroups.length === 0 ? (
             <Card><EmptyState icon={<SearchX className="h-5 w-5" />} title="没有匹配的策略组" description={`没有找到包含 “${query}” 的策略组或节点。`} action={<Button size="sm" onClick={() => setQuery('')}>清除搜索</Button>} /></Card>
           ) : null}
@@ -628,6 +731,48 @@ export function ProxiesPage() {
         <span>{selecting ? `正在切换到 ${selecting}…` : '节点选择会立即生效，并写入 mihomo 的缓存。'}</span>
         <span>更新于 {formatDate(proxies.lastUpdated ?? undefined)}</span>
       </div>
+
+      <Modal open={foldersOpen} onClose={() => setFoldersOpen(false)} title="策略组文件夹" description="把策略组放进文件夹，保存在浏览器本地。">
+        <div className="space-y-4">
+          <div className="flex gap-2">
+            <input
+              value={newFolder}
+              onChange={(event) => setNewFolder(event.target.value)}
+              placeholder="新文件夹名称"
+              className="focus-ring h-9 min-w-0 flex-1 rounded-lg border border-line/10 bg-surface2 px-2.5 text-xs text-ink placeholder:text-muted/50"
+            />
+            <Button variant="primary" size="sm" icon={<Plus className="h-3.5 w-3.5" />} onClick={addFolder}>添加</Button>
+          </div>
+          {folders.length === 0 ? (
+            <p className="text-[12px] text-muted">还没有文件夹</p>
+          ) : (
+            <div className="space-y-1">
+              {folders.map((folder) => (
+                <div key={folder.id} className="flex items-center gap-2 rounded-lg border border-line/8 px-3 py-2">
+                  <Folder className="h-3.5 w-3.5 text-accent" />
+                  <span className="min-w-0 flex-1 truncate text-[12px] text-ink">{folder.name}</span>
+                  <button type="button" onClick={() => removeFolder(folder.id)} className="text-muted hover:text-danger"><Trash2 className="h-3.5 w-3.5" /></button>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="max-h-[300px] space-y-1 overflow-y-auto">
+            {groups.map((group) => (
+              <div key={group.name} className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-surface2/40">
+                <span className="min-w-0 flex-1 truncate text-[11px] text-ink">{group.name}</span>
+                <select
+                  value={folderMap[group.name] || ''}
+                  onChange={(event) => assignFolder(group.name, event.target.value)}
+                  className="focus-ring h-7 rounded-lg border border-line/10 bg-surface2 px-1.5 text-[10px] text-ink"
+                >
+                  <option value="">不归类</option>
+                  {folders.map((folder) => <option key={folder.id} value={folder.id}>{folder.name}</option>)}
+                </select>
+              </div>
+            ))}
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
