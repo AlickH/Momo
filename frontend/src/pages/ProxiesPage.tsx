@@ -571,9 +571,9 @@ export function ProxiesPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2.5">
-        <SearchInput value={query} onChange={setQuery} placeholder="搜索策略组或节点" className="w-full sm:w-[300px]" />
-        <div className="ml-auto flex flex-wrap items-center gap-2">
+      <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-nowrap sm:items-center">
+        <SearchInput value={query} onChange={setQuery} placeholder="搜索策略组或节点" className="w-full sm:min-w-[150px] sm:max-w-[340px] sm:flex-1" />
+        <div className="flex flex-wrap items-center gap-2 sm:ml-auto sm:flex-nowrap">
           <span className="hidden text-[11px] text-muted md:inline">
             {groups.length} 策略组 · {realNodeCount} 节点
           </span>
