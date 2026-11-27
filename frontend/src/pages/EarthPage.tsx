@@ -102,9 +102,10 @@ export function EarthPage() {
     const map = new Map<string, GlobeMarker>();
     for (const node of nodeData?.nodes ?? []) {
       const key = `${node.lat.toFixed(3)},${node.lon.toFixed(3)}`;
-      const marker = map.get(key) ?? { lat: node.lat, lon: node.lon, city: node.city, country: node.country, countryCode: node.countryCode, count: 0, node: '' };
+      const marker = map.get(key) ?? { lat: node.lat, lon: node.lon, city: node.city, country: node.country, countryCode: node.countryCode, count: 0, node: '', nodes: [] };
       marker.count += 1;
       marker.node = `${marker.count} 节点`;
+      marker.nodes?.push(node.name);
       map.set(key, marker);
     }
     return [...map.values()].sort((a, b) => b.count - a.count);
@@ -157,16 +158,43 @@ export function EarthPage() {
                 <h3 className="text-sm font-semibold text-ink">目标分布</h3>
                 <span className="ml-auto text-[10px] text-muted/60">{dataMode === 'nodes' ? `${nodeData?.nodes.length ?? 0} 个节点` : origin ? `起点 ${origin.city || origin.country}` : resolving ? '正在定位起点…' : '起点未知'}</span>
               </div>
-              <div className="mt-2 divide-y divide-line/5">
-                {displayMarkers.slice(0, 12).map((marker, index) => (
-                  <div key={`${marker.lat}-${marker.lon}-${index}`} className="flex items-center gap-3 py-2 text-[11px]">
-                    <span className="w-10 shrink-0 mono text-muted/60" title={marker.country}>{marker.countryCode || '—'}</span>
-                    <span className="min-w-0 flex-1 truncate text-ink" title={marker.city || marker.country}>{marker.city || marker.country}</span>
-                    <span className="w-36 shrink-0 truncate text-right text-muted/60" title={marker.node}>{dataMode === 'targets' ? marker.node : ''}</span>
-                    <span className="w-14 shrink-0 text-right text-muted/60">{marker.count} {dataMode === 'nodes' ? '节点' : '连接'}</span>
-                  </div>
-                ))}
-              </div>
+              {dataMode === 'nodes' ? (
+                <div className="mt-2 max-h-[360px] overflow-y-auto">
+                  <table className="w-full border-collapse text-left">
+                    <thead className="sticky top-0 bg-surface">
+                      <tr className="border-b border-line/8 text-[10px] uppercase tracking-[0.12em] text-muted/60">
+                        <th className="px-1 py-2 font-medium">节点</th>
+                        <th className="px-1 py-2 font-medium">Provider</th>
+                        <th className="px-1 py-2 font-medium">城市</th>
+                        <th className="px-1 py-2 font-medium">国家</th>
+                        <th className="px-1 py-2 text-right font-medium">服务端</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(nodeData?.nodes ?? []).map((node) => (
+                        <tr key={`${node.provider}-${node.name}-${node.server}`} className="border-b border-line/5 text-[11px]">
+                          <td className="max-w-[280px] truncate px-1 py-1.5 text-ink" title={node.name}>{node.name}</td>
+                          <td className="max-w-[90px] truncate px-1 py-1.5 text-muted/70" title={node.provider}>{node.provider}</td>
+                          <td className="px-1 py-1.5 text-muted/70">{node.city || '—'}</td>
+                          <td className="px-1 py-1.5 text-muted/70">{node.countryCode || '—'}</td>
+                          <td className="max-w-[150px] truncate px-1 py-1.5 text-right mono text-muted/60" title={node.server}>{node.ip || node.server}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="mt-2 divide-y divide-line/5">
+                  {displayMarkers.slice(0, 12).map((marker, index) => (
+                    <div key={`${marker.lat}-${marker.lon}-${index}`} className="flex items-center gap-3 py-2 text-[11px]">
+                      <span className="w-10 shrink-0 mono text-muted/60" title={marker.country}>{marker.countryCode || '—'}</span>
+                      <span className="min-w-0 flex-1 truncate text-ink" title={marker.city || marker.country}>{marker.city || marker.country}</span>
+                      <span className="w-36 shrink-0 truncate text-right text-muted/60" title={marker.node}>{marker.node}</span>
+                      <span className="w-14 shrink-0 text-right text-muted/60">{marker.count} 连接</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </Card>
           )}
         </>

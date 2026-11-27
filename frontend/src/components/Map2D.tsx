@@ -139,6 +139,11 @@ export function Map2D({ markers, origin, countLabel = '连接' }: { markers: Glo
           <div className="font-medium">{hover.marker.city || hover.marker.country}</div>
           <div className="mt-0.5 text-muted">{hover.marker.countryCode} · {hover.marker.count} {countLabel}</div>
           <div className="text-muted">节点：{hover.marker.node || 'DIRECT'}</div>
+          {hover.marker.nodes?.length ? (
+            <div className="mt-0.5 max-w-[220px] text-muted/80">
+              {hover.marker.nodes.slice(0, 6).join('、')}{hover.marker.nodes.length > 6 ? ` 等 ${hover.marker.nodes.length} 个` : ''}
+            </div>
+          ) : null}
         </div>
       ) : null}
       <div className="absolute right-2 bottom-2 flex items-center gap-1 rounded-lg border border-line/10 bg-surface/90 p-1 shadow-soft backdrop-blur">

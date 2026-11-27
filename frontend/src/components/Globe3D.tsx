@@ -13,6 +13,7 @@ export interface GlobeMarker {
   countryCode?: string;
   count: number;
   node?: string;
+  nodes?: string[];
 }
 
 const RADIUS = 1.8;
