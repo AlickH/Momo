@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
@@ -30,6 +30,8 @@ function toVector(lat: number, lon: number, radius = RADIUS): THREE.Vector3 {
 
 export function Globe3D({ markers, origin }: { markers: GlobeMarker[]; origin: GlobeMarker | null }) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const hoverRef = useRef<{ x: number; y: number; marker: GlobeMarker } | null>(null);
+  const [hover, setHover] = useState<{ x: number; y: number; marker: GlobeMarker } | null>(null);
   const sceneRef = useRef<{
     scene: THREE.Scene;
     camera: THREE.PerspectiveCamera;
@@ -65,6 +67,32 @@ export function Globe3D({ markers, origin }: { markers: GlobeMarker[]; origin: G
     controls.enablePan = false;
     controls.minDistance = 3;
     controls.maxDistance = 8;
+
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+    const onPointerMove = (event: PointerEvent) => {
+      const rect = renderer.domElement.getBoundingClientRect();
+      pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(pointer, camera);
+      const hits = raycaster.intersectObjects(markerGroup.children, false);
+      const marker = hits.find((hit) => hit.object.userData.marker)?.object.userData.marker as GlobeMarker | undefined;
+      renderer.domElement.style.cursor = marker ? 'pointer' : 'grab';
+      if (marker) {
+        const info = { x: event.clientX, y: event.clientY, marker };
+        hoverRef.current = info;
+        setHover(info);
+      } else {
+        hoverRef.current = null;
+        setHover(null);
+      }
+    };
+    const onPointerLeave = () => {
+      hoverRef.current = null;
+      setHover(null);
+    };
+    renderer.domElement.addEventListener('pointermove', onPointerMove);
+    renderer.domElement.addEventListener('pointerleave', onPointerLeave);
 
     const ambient = new THREE.AmbientLight(0xffffff, 1.2);
     scene.add(ambient);
@@ -129,6 +157,8 @@ export function Globe3D({ markers, origin }: { markers: GlobeMarker[]; origin: G
     return () => {
       cancelAnimationFrame(frame);
       observer.disconnect();
+      renderer.domElement.removeEventListener('pointermove', onPointerMove);
+      renderer.domElement.removeEventListener('pointerleave', onPointerLeave);
       controls.dispose();
       renderer.dispose();
       texture.dispose();
@@ -159,6 +189,7 @@ export function Globe3D({ markers, origin }: { markers: GlobeMarker[]; origin: G
       const point = toVector(marker.lat, marker.lon, RADIUS * 1.015);
       const sphere = new THREE.Mesh(new THREE.SphereGeometry(0.028 + Math.min(0.04, Math.sqrt(marker.count) * 0.008), 12, 12), colorMaterial);
       sphere.position.copy(point);
+      sphere.userData.marker = marker;
       state.markerGroup.add(sphere);
       if (label && (marker.city || marker.country)) {
         const element = document.createElement('div');
@@ -190,6 +221,21 @@ export function Globe3D({ markers, origin }: { markers: GlobeMarker[]; origin: G
   return (
     <div ref={containerRef} className="relative h-[520px] w-full overflow-hidden rounded-xl bg-black">
       <div className="pointer-events-none absolute right-2 bottom-2 z-10 text-[9px] text-white/35">拖动旋转 · 滚轮缩放</div>
+      {hover ? (
+        <div
+          className="pointer-events-none fixed z-[80] rounded-lg border border-white/10 bg-black/85 px-2.5 py-2 text-[10px] text-white/90 shadow-xl backdrop-blur"
+          style={{ left: hover.x + 14, top: hover.y + 14 }}
+        >
+          <div className="font-medium">{hover.marker.city || hover.marker.country}</div>
+          <div className="mt-0.5 text-white/55">{hover.marker.countryCode} · {hover.marker.count} 节点</div>
+          <div className="mt-1 max-h-[180px] max-w-[260px] overflow-hidden text-white/75">
+            {hover.marker.nodes?.length ? hover.marker.nodes.slice(0, 12).map((name, index) => (
+              <div key={`${name}-${index}`} className="truncate">{name}</div>
+            )) : <div>{hover.marker.node || 'DIRECT'}</div>}
+            {(hover.marker.nodes?.length ?? 0) > 12 ? <div className="text-white/45">…还有 {(hover.marker.nodes?.length ?? 0) - 12} 个</div> : null}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

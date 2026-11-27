@@ -140,8 +140,11 @@ export function Map2D({ markers, origin, countLabel = '连接' }: { markers: Glo
           <div className="mt-0.5 text-muted">{hover.marker.countryCode} · {hover.marker.count} {countLabel}</div>
           <div className="text-muted">节点：{hover.marker.node || 'DIRECT'}</div>
           {hover.marker.nodes?.length ? (
-            <div className="mt-0.5 max-w-[220px] text-muted/80">
-              {hover.marker.nodes.slice(0, 6).join('、')}{hover.marker.nodes.length > 6 ? ` 等 ${hover.marker.nodes.length} 个` : ''}
+            <div className="mt-1 max-h-[160px] max-w-[260px] space-y-0.5 overflow-hidden text-muted/80">
+              {hover.marker.nodes.slice(0, 10).map((name, index) => (
+                <div key={`${name}-${index}`} className="truncate">{name}</div>
+              ))}
+              {hover.marker.nodes.length > 10 ? <div className="text-muted/50">…还有 {hover.marker.nodes.length - 10} 个</div> : null}
             </div>
           ) : null}
         </div>
