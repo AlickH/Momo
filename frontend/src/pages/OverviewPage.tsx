@@ -21,6 +21,7 @@ import {
   RefreshCw,
   ScrollText,
   Sparkles,
+  Database,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { usePolling } from '../hooks/usePolling';
@@ -33,12 +34,13 @@ import { TrafficChart } from '../components/TrafficChart';
 import { MiniChart } from '../components/MiniChart';
 import { Badge, Button, Card, ConfirmDialog, Modal, ProgressBar, Skeleton, StatusDot } from '../components/ui';
 import { cn } from '../lib/cn';
-import type { LogEntry, ProxiesData, SmartWeight } from '../types';
+import type { LogEntry, ProxiesData, Provider, SmartWeight } from '../types';
 
 const OVERVIEW_CARDS = [
   { key: 'traffic', label: '实时流量' },
   { key: 'stats', label: '统计卡片' },
   { key: 'trends', label: '运行趋势' },
+  { key: 'providerTraffic', label: '订阅流量' },
   { key: 'groups', label: '策略组' },
   { key: 'core', label: '内核状态' },
   { key: 'profile', label: '当前配置' },
@@ -145,6 +147,7 @@ export function OverviewPage() {
   const proxies = usePolling<ProxiesData>(() => api.get('proxies'), 5000);
   const logs = usePolling<{ logs: LogEntry[] }>(() => api.get('logs?since=0&limit=6'), 8000);
   const smart = usePolling<{ weights: Record<string, SmartWeight[]> }>(() => api.get('smart/weights'), 10000);
+  const providers = usePolling<{ providers: Provider[] }>(() => api.get('providers'), 30000);
   const core = status!.core;
   const settings = status!.settings;
   const profile = status!.activeProfile;
@@ -202,6 +205,12 @@ export function OverviewPage() {
   };
   const activeState = core.state;
   const running = activeState === 'running';
+
+  const trafficProviders = (providers.data?.providers ?? []).filter((provider) => (provider.subscriptionInfo?.total ?? 0) > 0);
+  const providerTotals = trafficProviders.reduce((total, provider) => ({
+    used: total.used + (provider.subscriptionInfo?.upload ?? 0) + (provider.subscriptionInfo?.download ?? 0),
+    total: total.total + (provider.subscriptionInfo?.total ?? 0),
+  }), { used: 0, total: 0 });
 
   return (
     <div className="space-y-4">
@@ -277,6 +286,43 @@ export function OverviewPage() {
                 </div>
               </div>
             </div>
+          </Card>
+
+          <Card className={cardClass('providerTraffic')}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h3 className="flex items-center gap-2 text-sm font-semibold text-ink"><Database className="h-4 w-4 text-accent" />订阅流量</h3>
+                <p className="mt-0.5 text-[12px] text-muted">provider 的 subscription-info</p>
+              </div>
+              {providerTotals.total > 0 ? (
+                <span className="text-[11px] text-muted">已用 {formatBytes(providerTotals.used)} / {formatBytes(providerTotals.total)}</span>
+              ) : null}
+            </div>
+            {trafficProviders.length === 0 ? (
+              <p className="mt-4 rounded-xl border border-dashed border-line/10 px-4 py-5 text-center text-[12px] text-muted">当前 provider 没有订阅流量信息</p>
+            ) : (
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                {trafficProviders.map((provider) => {
+                  const info = provider.subscriptionInfo!;
+                  const used = info.upload + info.download;
+                  const pct = percent(used, info.total);
+                  const expiry = formatExpiry(info.expire);
+                  return (
+                    <div key={provider.name}>
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="truncate font-medium text-ink">{provider.name}</span>
+                        <span className="shrink-0 text-muted">{formatBytes(used)} / {formatBytes(info.total)}</span>
+                      </div>
+                      <ProgressBar value={pct} tone={pct > 90 ? 'danger' : pct > 70 ? 'warning' : 'accent'} className="mt-1.5" />
+                      <div className="mt-1.5 flex items-center justify-between text-[10px] text-muted/60">
+                        <span>{pct.toFixed(1)}%</span>
+                        <span className={expiry.expired ? 'text-danger' : ''}>{expiry.text}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </Card>
 
           <Card className={cardClass('groups')}>
