@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ChevronDown,
@@ -18,6 +18,7 @@ import { cn } from '../lib/cn';
 import { formatDate, timeAgo } from '../lib/format';
 import { Badge, Button, Card, EmptyState, SearchInput, Skeleton } from '../components/ui';
 import { DelayBadge } from '../components/DelayBadge';
+import { LatencyBars } from '../components/LatencyBars';
 import type { ProxiesData, Provider, ProxyGroup } from '../types';
 
 const DEFAULT_TEST_URL = 'http://www.gstatic.com/generate_204';
@@ -41,6 +42,7 @@ function GroupCard({
   onTestNode,
   onSelect,
   collapseSignal,
+  latency,
 }: {
   group: ProxyGroup;
   data: ProxiesData;
@@ -51,6 +53,7 @@ function GroupCard({
   onTestNode: (name: string) => void;
   onSelect: (group: ProxyGroup, name: string) => void;
   collapseSignal: number;
+  latency: number[];
 }) {
   const [expanded, setExpanded] = useState(false);
   useEffect(() => setExpanded(false), [collapseSignal]);
@@ -83,6 +86,7 @@ function GroupCard({
             <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted">
               <span className="truncate">当前 · {group.now || '未选择'}</span>
               <DelayBadge delay={currentDelay} pending={isTesting} compact />
+              <LatencyBars values={latency} />
               <span className="text-muted/40">·</span>
               <span>{group.all.length} 节点</span>
             </div>
@@ -184,6 +188,8 @@ export function ProxiesPage() {
   const [restarting, setRestarting] = useState(false);
   const [sortMode, setSortMode] = useState(() => localStorage.getItem('momo-group-sort') || 'default');
   const [collapseSignal, setCollapseSignal] = useState(0);
+  const [latencyHistory, setLatencyHistory] = useState<Record<string, number[]>>({});
+  const latencyAtRef = useRef(0);
 
   const groups = proxies.data?.groups ?? [];
   const nodes = proxies.data?.nodes ?? {};
@@ -215,6 +221,23 @@ export function ProxiesPage() {
     });
     return list;
   }, [filteredGroups, sortMode, delays, nodes]);
+
+  useEffect(() => {
+    const data = proxies.data;
+    if (!data) return;
+    const now = Date.now();
+    if (now - latencyAtRef.current < 3000) return;
+    latencyAtRef.current = now;
+    setLatencyHistory((previous) => {
+      const next = { ...previous };
+      for (const group of data.groups) {
+        const delay = delays[group.now] ?? data.nodes[group.now]?.delay ?? 0;
+        const history = [...(next[group.name] ?? []), delay > 0 ? delay : 0].slice(-20);
+        next[group.name] = history;
+      }
+      return next;
+    });
+  }, [proxies.data, delays]);
 
   const applyDelays = (map: Record<string, number>) => {
     setDelays((prev) => ({ ...prev, ...map }));
@@ -478,6 +501,7 @@ export function ProxiesPage() {
                 onTestNode={(name) => { void testNode(name); }}
                 onSelect={(target, name) => { void selectNode(target, name); }}
                 collapseSignal={collapseSignal}
+                latency={latencyHistory[group.name] ?? []}
               />
             ))}
           </div>
