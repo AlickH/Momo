@@ -570,6 +570,9 @@ export function SettingsPage() {
                       Redir 需要应用以 root 运行，当前安装包不是 root 模式。
                     </p>
                   ) : null}
+                  <SettingRow title="接管局域网转发" description="把经过 NAS 转发的局域网/容器 TCP 和 DNS 流量重定向到 mihomo。需要客户端把网关指向 NAS。">
+                    <Switch checked={form.lanTransparent} onChange={(value) => setForm((prev) => ({ ...prev, lanTransparent: value }))} label="接管局域网转发" />
+                  </SettingRow>
                   <SettingRow title="Redir 端口" description="nftables 把本机新建 TCP 连接重定向到该端口；不要与其它透明代理占用同一端口。">
                     <input
                       type="number"
@@ -582,6 +585,7 @@ export function SettingsPage() {
                   </SettingRow>
                   <p className="mt-2 rounded-lg border border-warning/15 bg-warning/6 px-3 py-2 text-[10px] leading-relaxed text-warning">
                     启用后所有本机新建 TCP 连接和 DNS 查询会被接管（mihomo 自身流量除外）。如果和 ShellCrash 同时管理透明代理，规则会冲突；请只保留一个。
+                    {form.lanTransparent ? ' 局域网转发接管还会影响 Docker 容器和其它经过 NAS 网关的设备，请确认后再开启。' : ''}
                   </p>
                   {status!.app.transparentError ? <p className="mt-2 text-[10px] text-danger">{status!.app.transparentError}</p> : null}
                 </>

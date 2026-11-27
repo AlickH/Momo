@@ -49,7 +49,7 @@ class TransparentManager {
     }
   }
 
-  async applyRedir({ mihomoUid, redirPort, dnsPort, mixedPort, controllerPort }) {
+  async applyRedir({ mihomoUid, redirPort, dnsPort, mixedPort, controllerPort, lanTransparent = false }) {
     if (!mihomoUid || mihomoUid === 0) {
       throw new AppError('无法确定 mihomo 的运行 UID，拒绝安装透明代理规则', { status: 500, code: 'transparent_uid' });
     }
@@ -58,6 +58,21 @@ class TransparentManager {
     }
     await this.clear();
     const ports = [22, 53, dnsPort, mixedPort, redirPort, controllerPort].filter(Boolean).join(', ');
+    const lanChains = lanTransparent ? `
+  chain prerouting_dns {
+    type nat hook prerouting priority -90; policy accept;
+    ip daddr { ${PRIVATE_V4} } return
+    ip6 daddr { ${PRIVATE_V6} } return
+    udp dport 53 redirect to :${dnsPort}
+    tcp dport 53 redirect to :${dnsPort}
+  }
+  chain prerouting_tcp {
+    type nat hook prerouting priority -100; policy accept;
+    ip daddr { ${PRIVATE_V4} } return
+    ip6 daddr { ${PRIVATE_V6} } return
+    tcp dport { ${[53, dnsPort, mixedPort, redirPort, controllerPort].filter(Boolean).join(', ')} } return
+    meta l4proto tcp redirect to :${redirPort}
+  }` : '';
     const script = `table inet ${TABLE} {
   chain output_dns {
     type nat hook output priority -90; policy accept;
@@ -76,11 +91,11 @@ class TransparentManager {
     ip6 daddr { ${PRIVATE_V6} } return
     tcp dport { ${ports} } return
     meta l4proto tcp redirect to :${redirPort}
-  }
+  }${lanChains}
 }
 `;
     await runNft(['-f', '-'], script);
-    this.logger.info('transparent', `Redir 透明代理已启用，TCP 端口 ${redirPort}，DNS 端口 ${dnsPort}`);
+    this.logger.info('transparent', `Redir 透明代理已启用，TCP 端口 ${redirPort}，DNS 端口 ${dnsPort}${lanTransparent ? '，已接管局域网转发' : ''}`);
   }
 }
 

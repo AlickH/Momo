@@ -29,6 +29,7 @@ export interface Settings {
   dnsNameserver: string;
   proxyMode: 'off' | 'tun' | 'redir';
   redirPort: number;
+  lanTransparent: boolean;
   testUrl: string;
   testTimeout: number;
   tunStack: 'gvisor' | 'system' | 'mixed';

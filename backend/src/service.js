@@ -210,6 +210,7 @@ class MomoService {
         dnsPort: settings.dnsPort,
         mixedPort: settings.mixedPort,
         controllerPort: this.core.controllerPort,
+        lanTransparent: settings.lanTransparent,
       });
       this.transparentState = { active: true, error: null };
     } catch (error) {

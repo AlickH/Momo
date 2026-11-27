@@ -19,6 +19,7 @@ const DEFAULTS = Object.freeze({
   dnsNameserver: '',
   proxyMode: 'off',
   redirPort: 7892,
+  lanTransparent: false,
   testUrl: 'http://www.gstatic.com/generate_204',
   testTimeout: 5000,
   tunStack: 'gvisor',
@@ -113,6 +114,10 @@ function validateSettings(input) {
     const timeout = Number(input.testTimeout);
     if (!Number.isInteger(timeout) || timeout < 1000 || timeout > 10000) errors.push('测速超时必须在 1000 到 10000 毫秒之间');
     else result.testTimeout = timeout;
+  }
+  if (input.lanTransparent !== undefined) {
+    if (typeof input.lanTransparent !== 'boolean') errors.push('lanTransparent 必须是布尔值');
+    else result.lanTransparent = input.lanTransparent;
   }
   if (input.redirPort !== undefined) {
     const port = Number(input.redirPort);
