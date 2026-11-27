@@ -233,23 +233,14 @@ export function ProfilesPage() {
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-accent/25 bg-accent/10 text-accent"><Layers className="h-4.5 w-4.5" /></span>
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-base font-semibold text-ink">{active.name}</h3>
-                    <Badge tone="accent"><CheckCircle2 className="h-2.5 w-2.5" /> 正在使用</Badge>
-                  </div>
-                  <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[11px] text-muted">
-                    <SourceBadge profile={active} />
-                    <span>{active.proxyCount} 个代理</span>
-                    <span>·</span>
-                    <span>{timeAgo(active.updatedAt)}更新</span>
-                    {active.url ? <><span>·</span><span className="max-w-[280px] truncate">{active.url}</span></> : null}
-                  </div>
-                </div>
+                <h3 className="text-base font-semibold text-ink">{active.name}</h3>
+                <Badge tone="accent"><CheckCircle2 className="h-2.5 w-2.5" /> 正在使用</Badge>
+                <span className="text-[11px] text-muted">{timeAgo(active.updatedAt)}更新</span>
               </div>
               <div className="mt-4 max-w-md"><SubscriptionMeter profile={active} /></div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              <SourceBadge profile={active} />
               <Button variant="secondary" size="sm" icon={<Eye className="h-3.5 w-3.5" />} onClick={() => { void view(active); }}>查看</Button>
               {active.source === 'url' ? (
                 <Button variant="primary" size="sm" icon={<CloudDownload className="h-3.5 w-3.5" />} loading={busy === `update:${active.id}`} onClick={() => { void update(active); }}>更新订阅</Button>
@@ -343,10 +334,7 @@ export function ProfilesPage() {
                   <div className="flex items-center gap-2">
                     <h4 className="truncate text-[14px] font-medium text-ink">{profile.name}</h4>
                     {profile.active ? <Badge tone="accent">使用中</Badge> : null}
-                  </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-muted">
-                    <SourceBadge profile={profile} />
-                    <span>{profile.proxyCount} 代理</span>
+                    <span className="ml-auto shrink-0"><SourceBadge profile={profile} /></span>
                   </div>
                 </div>
               </div>
