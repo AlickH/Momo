@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { geoNaturalEarth1, geoPath } from 'd3-geo';
 import { feature } from 'topojson-client';
 import world from 'world-atlas/countries-110m.json';
@@ -33,7 +33,18 @@ function clampView(view: ViewBox): ViewBox {
 export function Map2D({ markers, origin, countLabel = '连接' }: { markers: GlobeMarker[]; origin: GlobeMarker | null; countLabel?: string }) {
   const [view, setView] = useState<ViewBox>(DEFAULT_VIEW);
   const [hover, setHover] = useState<{ x: number; y: number; marker: GlobeMarker } | null>(null);
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dragRef = useRef<{ x: number; y: number; view: ViewBox } | null>(null);
+
+  const clearHideTimer = () => {
+    if (hideTimer.current) clearTimeout(hideTimer.current);
+    hideTimer.current = null;
+  };
+  const hideSoon = () => {
+    clearHideTimer();
+    hideTimer.current = setTimeout(() => setHover(null), 180);
+  };
+  useEffect(() => () => clearHideTimer(), []);
   const svgRef = useRef<SVGSVGElement>(null);
   const originPoint = origin ? projection([origin.lon, origin.lat]) : null;
 
@@ -120,9 +131,9 @@ export function Map2D({ markers, origin, countLabel = '连接' }: { markers: Glo
                 fill="rgb(var(--accent))"
                 opacity="0.88"
                 className="cursor-pointer"
-                onPointerEnter={(event) => setHover({ x: event.clientX, y: event.clientY, marker })}
-                onPointerMove={(event) => setHover({ x: event.clientX, y: event.clientY, marker })}
-                onPointerLeave={() => setHover(null)}
+                onPointerEnter={(event) => { clearHideTimer(); setHover({ x: event.clientX, y: event.clientY, marker }); }}
+                onPointerMove={(event) => { clearHideTimer(); setHover({ x: event.clientX, y: event.clientY, marker }); }}
+                onPointerLeave={hideSoon}
               />
             </g>
           );
@@ -133,20 +144,22 @@ export function Map2D({ markers, origin, countLabel = '连接' }: { markers: Glo
       </div>
       {hover ? (
         <div
-          className="pointer-events-none fixed z-[70] rounded-lg border border-line/10 bg-surface/95 px-2.5 py-1.5 text-[10px] text-ink shadow-soft backdrop-blur"
-          style={{ left: hover.x + 12, top: hover.y + 12 }}
+          className="fixed z-[70] w-[280px] rounded-lg border border-line/10 bg-surface/95 px-2.5 py-1.5 text-[10px] text-ink shadow-soft backdrop-blur"
+          style={{ left: Math.min(hover.x + 12, window.innerWidth - 296), top: Math.min(hover.y + 12, window.innerHeight - 220) }}
+          onPointerEnter={clearHideTimer}
+          onPointerLeave={hideSoon}
         >
           <div className="font-medium">{hover.marker.city || hover.marker.country}</div>
-          <div className="mt-0.5 text-muted">{hover.marker.countryCode} · {hover.marker.count} {countLabel}</div>
-          <div className="text-muted">节点：{hover.marker.node || 'DIRECT'}</div>
+          <div className="mt-0.5 text-muted">{hover.marker.countryCode} · {hover.marker.count} {hover.marker.nodes?.length ? '节点' : countLabel}</div>
           {hover.marker.nodes?.length ? (
-            <div className="mt-1 max-h-[160px] max-w-[260px] space-y-0.5 overflow-hidden text-muted/80">
-              {hover.marker.nodes.slice(0, 10).map((name, index) => (
-                <div key={`${name}-${index}`} className="truncate">{name}</div>
+            <div className="mt-1 max-h-[50vh] space-y-0.5 overflow-y-auto pr-1 text-muted/80">
+              {hover.marker.nodes.map((name, index) => (
+                <div key={`${name}-${index}`} className="truncate" title={name}>{name}</div>
               ))}
-              {hover.marker.nodes.length > 10 ? <div className="text-muted/50">…还有 {hover.marker.nodes.length - 10} 个</div> : null}
             </div>
-          ) : null}
+          ) : (
+            <div className="mt-0.5 text-muted">节点：{hover.marker.node || 'DIRECT'}</div>
+          )}
         </div>
       ) : null}
       <div className="absolute right-2 bottom-2 flex items-center gap-1 rounded-lg border border-line/10 bg-surface/90 p-1 shadow-soft backdrop-blur">
