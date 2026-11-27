@@ -4,6 +4,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gunzipSync } from 'node:zlib';
+import { execFileSync } from 'node:child_process';
+import os from 'node:os';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const VENDOR = path.join(ROOT, 'vendor');
@@ -30,6 +32,12 @@ const BINARIES = [
     sha256: 'e013cef25adfbc9774c66fefb3a8cbf29f558bcb989e840aa3ae4f58684cd122',
   },
 ];
+
+const CITY_DB = {
+  name: 'IP2LOCATION-LITE-DB5.BIN',
+  sha256: '2468b71c29854796326074dbfedd46a782c6dac26524436dc039282ee7324482',
+  url: 'https://registry.npmjs.org/db5lite/-/db5lite-1.0.0.tgz',
+};
 
 const GEO_FILES = [
   {
@@ -80,6 +88,28 @@ async function main() {
     if (sha256(binary) !== item.sha256) throw new Error(`${item.name} 解压后校验失败`);
     fs.writeFileSync(target, binary, { mode: 0o755 });
     console.log(`✓ ${item.name}`);
+  }
+
+  const cityTarget = path.join(VENDOR, CITY_DB.name);
+  if (!fs.existsSync(cityTarget) || sha256(fs.readFileSync(cityTarget)) !== CITY_DB.sha256) {
+    console.log(`↓ ${CITY_DB.url}`);
+    const archive = await download(CITY_DB.url);
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'momo-db5-'));
+    try {
+      const tarball = path.join(tempDir, 'db5lite.tgz');
+      fs.writeFileSync(tarball, archive);
+      execFileSync('tar', ['xzf', tarball, '-C', tempDir], { stdio: 'ignore' });
+      const zip = path.join(tempDir, 'package', 'db5lite', 'DB5LITEBIN.zip');
+      const data = execFileSync('unzip', ['-p', zip, 'DB5LITEBIN/IP2LOCATION-LITE-DB5.BIN'], { maxBuffer: 100 * 1024 * 1024 });
+      if (sha256(data) !== CITY_DB.sha256) throw new Error(`${CITY_DB.name} 校验失败`);
+      fs.writeFileSync(cityTarget, data);
+      fs.writeFileSync(path.join(VENDOR, 'IP2LOCATION-LICENSE.txt'), execFileSync('unzip', ['-p', zip, 'DB5LITEBIN/LICENSE_LITE.TXT']));
+      console.log(`✓ ${CITY_DB.name}`);
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  } else {
+    console.log(`✓ ${CITY_DB.name}`);
   }
 
   for (const item of GEO_FILES) {
