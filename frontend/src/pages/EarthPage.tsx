@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Globe2, MapPin, RefreshCw } from 'lucide-react';
 import { usePolling } from '../hooks/usePolling';
 import { api } from '../lib/api';
@@ -24,7 +24,7 @@ export function EarthPage() {
   const [viewMode, setViewMode] = useState<'3d' | '2d'>('3d');
   const [dataMode, setDataMode] = useState<'targets' | 'nodes'>('targets');
   const [nodeData, setNodeData] = useState<{ nodes: NodeGeo[]; unresolved: number } | null>(null);
-  const [nodeLoading, setNodeLoading] = useState(false);
+  const nodeRequestRef = useRef(false);
 
   const grouped = useMemo(() => {
     const map = new Map<string, Marker>();
@@ -90,15 +90,13 @@ export function EarthPage() {
   }, []);
 
   useEffect(() => {
-    if (dataMode !== 'nodes' || nodeData || nodeLoading) return;
-    let cancelled = false;
-    setNodeLoading(true);
+    if (dataMode !== 'nodes' || nodeRequestRef.current) return;
+    nodeRequestRef.current = true;
     api.get<{ nodes: NodeGeo[]; unresolved: number }>('nodes/geo', { timeoutMs: 60000 })
-      .then((result) => { if (!cancelled) setNodeData(result); })
-      .catch(() => {})
-      .finally(() => { if (!cancelled) setNodeLoading(false); });
-    return () => { cancelled = true; };
-  }, [dataMode, nodeData, nodeLoading]);
+      .then((result) => setNodeData(result))
+      .catch(() => { nodeRequestRef.current = false; })
+      .finally(() => { /* request settled */ });
+  }, [dataMode]);
 
   const nodeMarkers = useMemo<GlobeMarker[]>(() => {
     const map = new Map<string, GlobeMarker>();
