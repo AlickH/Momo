@@ -802,7 +802,10 @@ class MomoService {
 
   async resolveGeo(ips) {
     if (!Array.isArray(ips)) throw badRequest('IP 列表无效');
-    return lookup(ips.map((ip) => String(ip)).filter(Boolean), { dbPath: path.join(this.coreDir, 'geoip.metadb') });
+    return lookup(ips.map((ip) => String(ip)).filter(Boolean), {
+      dbPath: path.join(this.coreDir, 'geoip.metadb'),
+      cityDbPath: path.join(this.env.geoSourceDir, 'IP2LOCATION-LITE-DB5.BIN'),
+    });
   }
 
   async getSmartWeights() {

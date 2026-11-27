@@ -1,6 +1,6 @@
 {
   "name": "momo-backend",
-  "version": "1.0.52",
+  "version": "1.0.54",
   "private": true,
   "type": "commonjs",
   "main": "src/index.js",
@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "express": "^5.1.0",
+    "ip2location-nodejs": "^9.8.0",
     "mmdb-lib": "^3.0.5",
     "ws": "^8.23.0",
     "yaml": "^2.8.1"

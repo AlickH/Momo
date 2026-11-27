@@ -16,6 +16,10 @@ const GEO_FILES = {
   'Model.bin': '23633022a815fb34e510befe1c176ba50af3ced48f08b172454f4cd6b8327788',
   'ASN.mmdb': 'ba7c4964c71b51d28dc23eefd5e4376801bf90472d26f766648aae003af9388e',
 };
+const CITY_DB = {
+  file: 'IP2LOCATION-LITE-DB5.BIN',
+  sha256: '2468b71c29854796326074dbfedd46a782c6dac26524436dc039282ee7324482',
+};
 const CORE_FILES = {
   x86: {
     file: `mihomo-linux-amd64-compatible-${CORE_BUILD}`,
@@ -137,6 +141,10 @@ function stage(arch) {
     if (sha256(source) !== expected) throw new Error(`地理数据库校验失败：${file}`);
     fs.copyFileSync(source, path.join(coreDir, file));
   }
+  const citySource = path.join(VENDOR_DIR, CITY_DB.file);
+  if (!fs.existsSync(citySource)) throw new Error(`缺少城市数据库：${citySource}`);
+  if (sha256(citySource) !== CITY_DB.sha256) throw new Error(`城市数据库校验失败：${CITY_DB.file}`);
+  fs.copyFileSync(citySource, path.join(coreDir, CITY_DB.file));
 
   for (const entry of fs.readdirSync(path.join(stageDir, 'cmd'))) {
     fs.chmodSync(path.join(stageDir, 'cmd', entry), 0o755);
