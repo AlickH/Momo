@@ -124,7 +124,7 @@ export function EarthPage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-[12px] text-muted">{dataMode === 'nodes' ? `节点服务器分布 · ${nodeTotal} 个节点${nodeData?.unresolved ? ` / ${nodeData.unresolved} 个未解析` : ''}` : `${viewMode === '3d' ? '当前连接目标的 3D' : '当前连接目标的 2D'}地理分布，IP 城市定位来自 IP2Location DB5`}</p>
+        <p className="text-[12px] text-muted">{dataMode === 'nodes' ? `节点入口服务器分布 · ${nodeTotal} 个节点${nodeData?.unresolved ? ` / ${nodeData.unresolved} 个未解析` : ''}（中转节点显示入口 IP，不代表实际出口）` : `${viewMode === '3d' ? '当前连接目标的 3D' : '当前连接目标的 2D'}地理分布，IP 城市定位来自 IP2Location DB5`}</p>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-0.5 rounded-lg border border-line/10 bg-surface2 p-0.5">
             <button type="button" onClick={() => setDataMode('targets')} className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition ${dataMode === 'targets' ? 'bg-surface text-ink shadow-sm' : 'text-muted hover:text-ink'}`}>目标分布</button>
@@ -171,7 +171,7 @@ export function EarthPage() {
                         <th className="px-1 py-2 font-medium">Provider</th>
                         <th className="px-1 py-2 font-medium">城市</th>
                         <th className="px-1 py-2 font-medium">国家</th>
-                        <th className="px-1 py-2 text-right font-medium">服务端</th>
+                        <th className="px-1 py-2 text-right font-medium" title="节点配置里的 server，可能是中转入口">入口 IP</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -181,7 +181,7 @@ export function EarthPage() {
                           <td className="max-w-[90px] truncate px-1 py-1.5 text-muted/70" title={node.provider}>{node.provider}</td>
                           <td className="px-1 py-1.5 text-muted/70">{node.city || '—'}</td>
                           <td className="px-1 py-1.5 text-muted/70">{node.countryCode || '—'}</td>
-                          <td className="max-w-[150px] truncate px-1 py-1.5 text-right mono text-muted/60" title={node.server}>{node.ip || node.server}</td>
+                          <td className="max-w-[150px] truncate px-1 py-1.5 text-right mono text-muted/60" title={`${node.ip || ''}\n${node.server}`}>{node.ip || node.server}</td>
                         </tr>
                       ))}
                     </tbody>
