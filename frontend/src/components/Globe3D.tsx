@@ -10,6 +10,7 @@ export interface GlobeMarker {
   lon: number;
   city: string;
   country: string;
+  countryCode?: string;
   count: number;
   node?: string;
 }

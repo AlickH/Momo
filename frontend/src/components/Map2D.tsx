@@ -32,6 +32,7 @@ function clampView(view: ViewBox): ViewBox {
 
 export function Map2D({ markers, origin }: { markers: GlobeMarker[]; origin: GlobeMarker | null }) {
   const [view, setView] = useState<ViewBox>(DEFAULT_VIEW);
+  const [hover, setHover] = useState<{ x: number; y: number; marker: GlobeMarker } | null>(null);
   const dragRef = useRef<{ x: number; y: number; view: ViewBox } | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const originPoint = origin ? projection([origin.lon, origin.lat]) : null;
@@ -81,7 +82,7 @@ export function Map2D({ markers, origin }: { markers: GlobeMarker[]; origin: Glo
       <svg
         ref={svgRef}
         viewBox={`${view.x} ${view.y} ${view.width} ${view.height}`}
-        className="block h-auto w-full cursor-grab touch-none select-none active:cursor-grabbing"
+        className="block h-auto w-full cursor-default touch-none select-none active:cursor-grabbing"
         onWheel={onWheel}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -112,9 +113,17 @@ export function Map2D({ markers, origin }: { markers: GlobeMarker[]; origin: Glo
           return (
             <g key={`${marker.lat}-${marker.lon}-${index}`}>
               <circle cx={point[0]} cy={point[1]} r={radius + 4 * scale} fill="rgb(var(--accent) / 0.14)" />
-              <circle cx={point[0]} cy={point[1]} r={radius} fill="rgb(var(--accent))" opacity="0.88">
-                <title>{`${marker.city || marker.country}${marker.node ? ` · ${marker.node}` : ''}\n${marker.count} 连接`}</title>
-              </circle>
+              <circle
+                cx={point[0]}
+                cy={point[1]}
+                r={radius}
+                fill="rgb(var(--accent))"
+                opacity="0.88"
+                className="cursor-pointer"
+                onPointerEnter={(event) => setHover({ x: event.clientX, y: event.clientY, marker })}
+                onPointerMove={(event) => setHover({ x: event.clientX, y: event.clientY, marker })}
+                onPointerLeave={() => setHover(null)}
+              />
             </g>
           );
         })}
@@ -122,6 +131,16 @@ export function Map2D({ markers, origin }: { markers: GlobeMarker[]; origin: Glo
       <div className="pointer-events-none absolute bottom-2 left-3 text-[10px] text-muted/60">
         {markers.length} 个目标 · 滚轮缩放 · 拖动平移
       </div>
+      {hover ? (
+        <div
+          className="pointer-events-none fixed z-[70] rounded-lg border border-line/10 bg-surface/95 px-2.5 py-1.5 text-[10px] text-ink shadow-soft backdrop-blur"
+          style={{ left: hover.x + 12, top: hover.y + 12 }}
+        >
+          <div className="font-medium">{hover.marker.city || hover.marker.country}</div>
+          <div className="mt-0.5 text-muted">{hover.marker.countryCode} · {hover.marker.count} 连接</div>
+          <div className="text-muted">节点：{hover.marker.node || 'DIRECT'}</div>
+        </div>
+      ) : null}
       <div className="absolute right-2 bottom-2 flex items-center gap-1 rounded-lg border border-line/10 bg-surface/90 p-1 shadow-soft backdrop-blur">
         <button type="button" title="缩小" onClick={() => zoomAt(1.3)} className="flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-surface2 hover:text-ink"><Minus className="h-3.5 w-3.5" /></button>
         <button type="button" title="放大" onClick={() => zoomAt(1 / 1.3)} className="flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-surface2 hover:text-ink"><Plus className="h-3.5 w-3.5" /></button>

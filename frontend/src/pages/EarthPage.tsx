@@ -89,7 +89,7 @@ export function EarthPage() {
   const markers: GlobeMarker[] = grouped
     .map((marker) => ({ ...marker, ...(locations[marker.ip] ?? {}) }))
     .filter((marker) => Number.isFinite(marker.lat) && Number.isFinite(marker.lon) && (marker.lat !== 0 || marker.lon !== 0))
-    .map((marker) => ({ lat: marker.lat, lon: marker.lon, city: marker.city, country: marker.country, count: marker.count, node: marker.node }));
+    .map((marker) => ({ lat: marker.lat, lon: marker.lon, city: marker.city, country: marker.country, countryCode: marker.countryCode, count: marker.count, node: marker.node }));
 
   const total = connections.data?.connections.length ?? 0;
 
@@ -129,10 +129,10 @@ export function EarthPage() {
               <div className="mt-2 divide-y divide-line/5">
                 {markers.slice(0, 12).map((marker, index) => (
                   <div key={`${marker.lat}-${marker.lon}-${index}`} className="flex items-center gap-3 py-2 text-[11px]">
-                    <span className="w-14 shrink-0 mono text-muted/60">{marker.country}</span>
-                    <span className="min-w-0 flex-1 truncate text-ink">{marker.city || marker.country}</span>
-                    <span className="max-w-[140px] shrink-0 truncate text-muted/60">{marker.node}</span>
-                    <span className="shrink-0 text-muted/60">{marker.count} 连接</span>
+                    <span className="w-10 shrink-0 mono text-muted/60" title={marker.country}>{marker.countryCode || '—'}</span>
+                    <span className="min-w-0 flex-1 truncate text-ink" title={marker.city || marker.country}>{marker.city || marker.country}</span>
+                    <span className="w-36 shrink-0 truncate text-right text-muted/60" title={marker.node}>{marker.node}</span>
+                    <span className="w-14 shrink-0 text-right text-muted/60">{marker.count} 连接</span>
                   </div>
                 ))}
               </div>
