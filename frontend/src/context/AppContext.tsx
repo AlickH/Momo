@@ -98,6 +98,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     document.documentElement.dataset.theme = theme;
     document.documentElement.style.colorScheme = theme;
     localStorage.setItem('momo-theme-mode', themeMode);
+    localStorage.setItem('momo-theme-resolved', theme);
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.setAttribute('content', theme === 'dark' ? '#0b0b0b' : '#f2f2f2');
   }, [theme, themeMode]);
