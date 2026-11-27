@@ -359,7 +359,9 @@ export function OverviewPage() {
                       <ProgressBar value={pct} tone={pct > 90 ? 'danger' : pct > 70 ? 'warning' : 'accent'} className="mt-1.5" />
                       <div className="mt-1.5 flex items-center justify-between text-[10px] text-muted/60">
                         <span>{pct.toFixed(1)}%</span>
-                        <span className={expiry.expired ? 'text-danger' : ''}>{expiry.text}</span>
+                        <span className={expiry.expired ? 'text-danger' : ''} title="来自 provider 的 subscription-info.expire，是套餐/订阅到期时间，不是本轮流量的重置时间">
+                          {expiry.expired ? '已过期' : Number.isFinite(expiry.days) ? `${expiry.days} 天后套餐到期` : '长期有效'}
+                        </span>
                       </div>
                     </div>
                   );
