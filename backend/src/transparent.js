@@ -32,13 +32,81 @@ function runNft(args, input) {
   });
 }
 
+function runIp(args) {
+  return new Promise((resolve, reject) => {
+    const child = spawn('ip', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    let stderr = '';
+    child.stderr.on('data', (chunk) => { stderr += chunk; });
+    child.on('error', reject);
+    child.on('close', (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(stderr.trim() || `ip 退出码 ${code}`));
+    });
+  });
+}
+
 class TransparentManager {
   constructor({ logger }) {
     this.logger = logger;
   }
 
+  async applyTproxy({ mihomoUid, tproxyPort, dnsPort, mixedPort, controllerPort }) {
+    if (process.getuid?.() !== 0) {
+      throw new AppError('TProxy 需要 root 运行应用', { status: 500, code: 'tproxy_root' });
+    }
+    await this.clear();
+    const ports = [53, dnsPort, mixedPort, tproxyPort, controllerPort].filter(Boolean).join(', ');
+    const script = `table inet ${TABLE} {
+  chain prerouting_dns {
+    type nat hook prerouting priority dstnat; policy accept;
+    ip daddr { ${PRIVATE_V4} } return
+    ip6 daddr { ${PRIVATE_V6} } return
+    udp dport 53 redirect to :${dnsPort}
+    tcp dport 53 redirect to :${dnsPort}
+  }
+  chain prerouting_tproxy {
+    type filter hook prerouting priority mangle; policy accept;
+    ip daddr { ${PRIVATE_V4} } return
+    ip6 daddr { ${PRIVATE_V6} } return
+    tcp dport { ${ports} } return
+    udp dport { ${ports} } return
+    meta l4proto { tcp, udp } tproxy to :${tproxyPort} meta mark set 0x233
+  }
+}
+`;
+    await runNft(['-f', '-'], script);
+    for (const family of ['-4', '-6']) {
+      try {
+        await runIp([family, 'rule', 'del', 'fwmark', '0x233', 'lookup', '233']);
+      } catch {}
+      try {
+        await runIp([family, 'route', 'flush', 'table', '233']);
+      } catch {}
+      await runIp([family, 'rule', 'add', 'fwmark', '0x233', 'lookup', '233']);
+      await runIp([family, 'route', 'add', 'local', family === '-4' ? '0.0.0.0/0' : '::/0', 'dev', 'lo', 'table', '233']);
+    }
+    this.logger.info('transparent', `TProxy 已启用，端口 ${tproxyPort}，DNS 端口 ${dnsPort}`);
+  }
+
+  async clearRoutes() {
+    if (process.getuid?.() !== 0) return;
+    for (const family of ['-4', '-6']) {
+      try {
+        await runIp([family, 'rule', 'del', 'fwmark', '0x233', 'lookup', '233']);
+      } catch {
+        // Rule is absent.
+      }
+      try {
+        await runIp([family, 'route', 'flush', 'table', '233']);
+      } catch {
+        // Table is absent.
+      }
+    }
+  }
+
   async clear() {
     if (process.getuid?.() !== 0) return;
+    await this.clearRoutes();
     try {
       await runNft(['delete', 'table', 'inet', TABLE]);
     } catch (error) {

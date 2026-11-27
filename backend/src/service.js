@@ -188,7 +188,7 @@ class MomoService {
     this.transparentBusy = true;
     try {
       const mode = this.settings.get().proxyMode;
-      if (mode !== 'redir') {
+      if (mode !== 'redir' && mode !== 'tproxy') {
         await this.clearTransparentRules();
         return;
       }
@@ -204,14 +204,24 @@ class MomoService {
         this.logger.warn('transparent', this.transparentState.error);
         return;
       }
-      await this.transparent.applyRedir({
-        mihomoUid: this.env.appUid,
-        redirPort: settings.redirPort,
-        dnsPort: settings.dnsPort,
-        mixedPort: settings.mixedPort,
-        controllerPort: this.core.controllerPort,
-        lanTransparent: settings.lanTransparent,
-      });
+      if (mode === 'tproxy') {
+        await this.transparent.applyTproxy({
+          mihomoUid: this.env.appUid,
+          tproxyPort: settings.tproxyPort,
+          dnsPort: settings.dnsPort,
+          mixedPort: settings.mixedPort,
+          controllerPort: this.core.controllerPort,
+        });
+      } else {
+        await this.transparent.applyRedir({
+          mihomoUid: this.env.appUid,
+          redirPort: settings.redirPort,
+          dnsPort: settings.dnsPort,
+          mixedPort: settings.mixedPort,
+          controllerPort: this.core.controllerPort,
+          lanTransparent: settings.lanTransparent,
+        });
+      }
       this.transparentState = { active: true, error: null };
     } catch (error) {
       this.transparentState = { active: false, error: error.message };

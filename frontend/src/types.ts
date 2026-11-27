@@ -27,9 +27,10 @@ export interface Settings {
   coreRestartHours: number;
   dnsPort: number;
   dnsNameserver: string;
-  proxyMode: 'off' | 'tun' | 'redir';
+  proxyMode: 'off' | 'tun' | 'redir' | 'tproxy';
   redirPort: number;
   lanTransparent: boolean;
+  tproxyPort: number;
   testUrl: string;
   testTimeout: number;
   tunStack: 'gvisor' | 'system' | 'mixed';

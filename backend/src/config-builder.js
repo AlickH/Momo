@@ -126,7 +126,7 @@ function buildRuntimeConfig(profile, settings, { controllerPort, secret, control
     };
   }
   config['redir-port'] = proxyMode === 'redir' ? settings.redirPort : 0;
-  config['tproxy-port'] = 0;
+  config['tproxy-port'] = proxyMode === 'tproxy' ? settings.tproxyPort : 0;
 
   if (isPlainObject(config.dns)) {
     const dns = { ...config.dns, listen: `0.0.0.0:${settings.dnsPort}` };

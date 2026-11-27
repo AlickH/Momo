@@ -20,6 +20,7 @@ const DEFAULTS = Object.freeze({
   proxyMode: 'off',
   redirPort: 7892,
   lanTransparent: false,
+  tproxyPort: 7893,
   testUrl: 'http://www.gstatic.com/generate_204',
   testTimeout: 5000,
   tunStack: 'gvisor',
@@ -44,7 +45,7 @@ const DEFAULTS = Object.freeze({
 });
 
 const TUN_STACKS = new Set(['gvisor', 'system', 'mixed']);
-const PROXY_MODES = new Set(['off', 'tun', 'redir']);
+const PROXY_MODES = new Set(['off', 'tun', 'redir', 'tproxy']);
 
 const MODES = new Set(['rule', 'global', 'direct']);
 const LOG_LEVELS = new Set(['debug', 'info', 'warning', 'error', 'silent']);
@@ -114,6 +115,11 @@ function validateSettings(input) {
     const timeout = Number(input.testTimeout);
     if (!Number.isInteger(timeout) || timeout < 1000 || timeout > 10000) errors.push('测速超时必须在 1000 到 10000 毫秒之间');
     else result.testTimeout = timeout;
+  }
+  if (input.tproxyPort !== undefined) {
+    const port = Number(input.tproxyPort);
+    if (!Number.isInteger(port) || port < 1024 || port > 65535) errors.push('TProxy 端口必须是 1024 到 65535 之间的整数');
+    else result.tproxyPort = port;
   }
   if (input.lanTransparent !== undefined) {
     if (typeof input.lanTransparent !== 'boolean') errors.push('lanTransparent 必须是布尔值');

@@ -527,6 +527,7 @@ export function SettingsPage() {
                   <option value="off">关闭</option>
                   <option value="tun" disabled={!status!.app.tunCapable}>TUN</option>
                   <option value="redir" disabled={!status!.app.rootMode}>Redir（TCP）</option>
+                  <option value="tproxy" disabled={!status!.app.rootMode}>TProxy（局域网）</option>
                 </select>
               </SettingRow>
               {form.proxyMode === 'tun' ? (
@@ -560,6 +561,23 @@ export function SettingsPage() {
                   ) : null}
                   <p className="mt-2 rounded-lg border border-warning/15 bg-warning/6 px-3 py-2 text-[10px] leading-relaxed text-warning">
                     TUN 模式会影响整个 NAS 的网络出口；如果开启后 SSH/管理页面断开，可通过应用中心停止 Momo 后重新连接。
+                  </p>
+                </>
+              ) : null}
+              {form.proxyMode === 'tproxy' ? (
+                <>
+                  <SettingRow title="TProxy 端口" description="mihomo 的 tproxy-port，配合 nftables 和策略路由使用。">
+                    <input
+                      type="number"
+                      min={1024}
+                      max={65535}
+                      value={form.tproxyPort}
+                      onChange={(event) => setForm((prev) => ({ ...prev, tproxyPort: Number(event.target.value) }))}
+                      className="focus-ring h-9 w-24 rounded-lg border border-line/10 bg-surface2 px-2.5 text-right text-sm text-ink tabular"
+                    />
+                  </SettingRow>
+                  <p className="mt-2 rounded-lg border border-warning/15 bg-warning/6 px-3 py-2 text-[10px] leading-relaxed text-warning">
+                    TProxy 只接管经过 NAS 网关的局域网/容器 TCP + UDP 流量，并添加 fwmark 0x233 的策略路由；如果配置错误可能导致局域网断网，请确认后再开启。
                   </p>
                 </>
               ) : null}

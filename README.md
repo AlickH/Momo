@@ -21,7 +21,7 @@ Momo 以 fnOS Native 进程方式运行：Node.js 后端托管 mihomo、管理�
 - **代理选择**：策略组、节点延迟测速、节点切换、代理提供者更新与健康检查。
 - **实时观察**：流量曲线、连接列表（含详情弹窗）、规则命中、内核日志，支持筛选与关闭连接。
 - **配置编辑**：代理端口、局域网访问、IPv6、模式、日志级别、统一延迟、TCP 并发、DNS 监听端口/上游。
-- **透明代理**：TUN（gVisor/System/Mixed、自动路由、DNS 劫持）和 Redir（nftables 接管本机或局域网转发的 TCP + DNS）两种模式，默认关闭。
+- **透明代理**：TUN（gVisor/System/Mixed、自动路由、DNS 劫持）、Redir（本机 TCP + DNS，可选局域网转发）和 TProxy（局域网 TCP + UDP）三种模式，默认关闭。
 - **外部控制器**：可选把 mihomo 控制器绑定到 `0.0.0.0:<port>`，供 zashboard 等 Clash 面板连接；默认关闭，需手动开启并设置密钥。
 - **zashboard 面板能力**：规则集更新、订阅流量（provider subscription-info）、Smart 权重。
 - **Telegram Bot**：远程查看状态、启停/重启内核、更新订阅、切换模式，默认关闭。
@@ -84,8 +84,8 @@ Node.js 后端（Express）
 - 飞牛 fnOS `>= 1.1.3100`（统一网关）
 - 商店依赖 `nodejs_v24`（manifest 中已声明，安装时自动处理）
 - 按设备架构选择 FPK：
-  - x86 设备：`dist/momo_1.0.40_x86.fpk`
-  - ARM 设备：`dist/momo_1.0.40_arm.fpk`
+  - x86 设备：`dist/momo_1.0.41_x86.fpk`
+  - ARM 设备：`dist/momo_1.0.41_arm.fpk`
 
 安装步骤：
 
@@ -126,8 +126,8 @@ node scripts/build.mjs --arch=x86
 产物：
 
 ```text
-dist/momo_1.0.40_x86.fpk
-dist/momo_1.0.40_arm.fpk
+dist/momo_1.0.41_x86.fpk
+dist/momo_1.0.41_arm.fpk
 dist/SHA256SUMS
 ```
 

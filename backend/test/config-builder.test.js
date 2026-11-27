@@ -98,6 +98,11 @@ test('buildRuntimeConfig enables and disables TUN/Redir from app settings', () =
   const disabled = YAML.parse(buildRuntimeConfig({ tun: { enable: true, stack: 'gvisor' } }, SETTINGS, { controllerPort: 19090, secret: 'x' }));
   assert.equal(disabled.tun.enable, false);
   assert.equal(disabled['redir-port'], 0);
+  assert.equal(disabled['tproxy-port'], 0);
+
+  const tproxy = YAML.parse(buildRuntimeConfig(null, { ...SETTINGS, proxyMode: 'tproxy', tproxyPort: 7893 }, { controllerPort: 19090, secret: 'x' }));
+  assert.equal(tproxy['tproxy-port'], 7893);
+  assert.equal(tproxy['redir-port'], 0);
 });
 
 test('buildRuntimeConfig prepends custom rules', () => {
