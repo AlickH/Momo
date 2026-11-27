@@ -8,6 +8,7 @@ import {
   RefreshCw,
   SearchX,
   ServerCog,
+  Star,
   Zap,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
@@ -43,6 +44,10 @@ function GroupCard({
   onSelect,
   collapseSignal,
   latency,
+  pinned,
+  icon,
+  onTogglePin,
+  onCycleIcon,
 }: {
   group: ProxyGroup;
   data: ProxiesData;
@@ -54,6 +59,10 @@ function GroupCard({
   onSelect: (group: ProxyGroup, name: string) => void;
   collapseSignal: number;
   latency: number[];
+  pinned: boolean;
+  icon: string;
+  onTogglePin: (name: string) => void;
+  onCycleIcon: (name: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   useEffect(() => setExpanded(false), [collapseSignal]);
@@ -74,9 +83,14 @@ function GroupCard({
     <Card className="overflow-hidden !p-0">
       <div className="border-b border-line/8 px-4 pb-3 pt-4">
         <div className="flex items-start gap-2.5">
-          <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-line/10 bg-surface2 text-[12px] font-semibold text-muted">
-            {group.name.slice(0, 1).toUpperCase()}
-          </span>
+          <button
+            type="button"
+            title="切换图标"
+            onClick={() => onCycleIcon(group.name)}
+            className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-line/10 bg-surface2 text-[13px] text-muted transition hover:border-accent/20 hover:text-ink"
+          >
+            {icon || group.name.slice(0, 1).toUpperCase()}
+          </button>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <h3 className="truncate text-[14px] font-semibold text-ink">{group.name}</h3>
@@ -91,6 +105,15 @@ function GroupCard({
               <span>{group.all.length} 节点</span>
             </div>
           </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn('h-7 w-7', pinned && 'text-warning')}
+            title={pinned ? '取消置顶' : '置顶策略组'}
+            onClick={() => onTogglePin(group.name)}
+          >
+            <Star className={cn('h-3.5 w-3.5', pinned && 'fill-current')} />
+          </Button>
           <Button
             variant="ghost"
             size="icon"
@@ -190,6 +213,37 @@ export function ProxiesPage() {
   const [collapseSignal, setCollapseSignal] = useState(0);
   const [latencyHistory, setLatencyHistory] = useState<Record<string, number[]>>({});
   const latencyAtRef = useRef(0);
+  const [prefs, setPrefs] = useState<{ pinned: string[]; icons: Record<string, string> }>(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem('momo-group-prefs') || '{}');
+      return {
+        pinned: Array.isArray(stored.pinned) ? stored.pinned : [],
+        icons: stored.icons && typeof stored.icons === 'object' ? stored.icons : {},
+      };
+    } catch {
+      return { pinned: [], icons: {} };
+    }
+  });
+  const ICONS = ['🌐', '🚀', '🛡️', '⚡', '🎯', '📦', '🇭🇰', '🇯🇵', '🇺🇸', '🇸🇬'];
+
+  const savePrefs = (next: { pinned: string[]; icons: Record<string, string> }) => {
+    setPrefs(next);
+    localStorage.setItem('momo-group-prefs', JSON.stringify(next));
+  };
+
+  const togglePin = (name: string) => {
+    const pinned = prefs.pinned.includes(name)
+      ? prefs.pinned.filter((item) => item !== name)
+      : [...prefs.pinned, name];
+    savePrefs({ ...prefs, pinned });
+  };
+
+  const cycleIcon = (name: string) => {
+    const current = prefs.icons[name] || '';
+    const index = ICONS.indexOf(current);
+    const nextIcon = ICONS[(index + 1) % ICONS.length];
+    savePrefs({ ...prefs, icons: { ...prefs.icons, [name]: nextIcon } });
+  };
 
   const groups = proxies.data?.groups ?? [];
   const nodes = proxies.data?.nodes ?? {};
@@ -219,8 +273,9 @@ export function ProxiesPage() {
       const right = delays[b.now] ?? nodes[b.now]?.delay ?? Number.POSITIVE_INFINITY;
       return left - right;
     });
+    list.sort((a, b) => Number(prefs.pinned.includes(b.name)) - Number(prefs.pinned.includes(a.name)));
     return list;
-  }, [filteredGroups, sortMode, delays, nodes]);
+  }, [filteredGroups, sortMode, delays, nodes, prefs.pinned]);
 
   useEffect(() => {
     const data = proxies.data;
@@ -502,6 +557,10 @@ export function ProxiesPage() {
                 onSelect={(target, name) => { void selectNode(target, name); }}
                 collapseSignal={collapseSignal}
                 latency={latencyHistory[group.name] ?? []}
+                pinned={prefs.pinned.includes(group.name)}
+                icon={prefs.icons[group.name] ?? ''}
+                onTogglePin={togglePin}
+                onCycleIcon={cycleIcon}
               />
             ))}
           </div>
