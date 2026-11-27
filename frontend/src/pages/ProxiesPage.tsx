@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ChevronDown,
   ChevronUp,
+  ChevronsUpDown,
   Layers,
   RefreshCw,
   SearchX,
@@ -39,6 +40,7 @@ function GroupCard({
   onTestGroup,
   onTestNode,
   onSelect,
+  collapseSignal,
 }: {
   group: ProxyGroup;
   data: ProxiesData;
@@ -48,8 +50,10 @@ function GroupCard({
   onTestGroup: (group: ProxyGroup) => void;
   onTestNode: (name: string) => void;
   onSelect: (group: ProxyGroup, name: string) => void;
+  collapseSignal: number;
 }) {
   const [expanded, setExpanded] = useState(false);
+  useEffect(() => setExpanded(false), [collapseSignal]);
   const normalized = query.trim().toLowerCase();
   const groupMatches = !normalized || group.name.toLowerCase().includes(normalized) || group.now.toLowerCase().includes(normalized);
   const nodes = group.all
@@ -178,6 +182,8 @@ export function ProxiesPage() {
   const [providerBusy, setProviderBusy] = useState<string | null>(null);
   const [updatingAllProviders, setUpdatingAllProviders] = useState(false);
   const [restarting, setRestarting] = useState(false);
+  const [sortMode, setSortMode] = useState(() => localStorage.getItem('momo-group-sort') || 'default');
+  const [collapseSignal, setCollapseSignal] = useState(0);
 
   const groups = proxies.data?.groups ?? [];
   const nodes = proxies.data?.nodes ?? {};
@@ -197,6 +203,18 @@ export function ProxiesPage() {
       || group.all.some((name) => name.toLowerCase().includes(normalized))
     ));
   }, [groups, query]);
+
+  const sortedGroups = useMemo(() => {
+    const list = [...filteredGroups];
+    if (sortMode === 'name') list.sort((a, b) => a.name.localeCompare(b.name));
+    if (sortMode === 'nodes') list.sort((a, b) => b.all.length - a.all.length);
+    if (sortMode === 'delay') list.sort((a, b) => {
+      const left = delays[a.now] ?? nodes[a.now]?.delay ?? Number.POSITIVE_INFINITY;
+      const right = delays[b.now] ?? nodes[b.now]?.delay ?? Number.POSITIVE_INFINITY;
+      return left - right;
+    });
+    return list;
+  }, [filteredGroups, sortMode, delays, nodes]);
 
   const applyDelays = (map: Record<string, number>) => {
     setDelays((prev) => ({ ...prev, ...map }));
@@ -398,6 +416,25 @@ export function ProxiesPage() {
           <span className="hidden text-[11px] text-muted md:inline">
             {groups.length} 策略组 · {realNodeCount} 节点
           </span>
+          <select
+            value={sortMode}
+            onChange={(event) => {
+              setSortMode(event.target.value);
+              localStorage.setItem('momo-group-sort', event.target.value);
+            }}
+            className="focus-ring h-8 rounded-lg border border-line/10 bg-surface2 px-2 text-[11px] text-ink"
+          >
+            <option value="default">配置顺序</option>
+            <option value="name">按名称</option>
+            <option value="nodes">按节点数</option>
+            <option value="delay">按当前延迟</option>
+          </select>
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={<ChevronsUpDown className="h-3.5 w-3.5" />}
+            onClick={() => setCollapseSignal((value) => value + 1)}
+          >全部折叠</Button>
           <Button
             variant="secondary"
             size="sm"
@@ -429,7 +466,7 @@ export function ProxiesPage() {
       ) : groups.length > 0 ? (
         <>
           <div className="grid items-start gap-4 xl:grid-cols-2">
-            {filteredGroups.map((group) => (
+            {sortedGroups.map((group) => (
               <GroupCard
                 key={group.name}
                 group={group}
@@ -440,6 +477,7 @@ export function ProxiesPage() {
                 onTestGroup={(target) => { void testGroup(target); }}
                 onTestNode={(name) => { void testNode(name); }}
                 onSelect={(target, name) => { void selectNode(target, name); }}
+                collapseSignal={collapseSignal}
               />
             ))}
           </div>

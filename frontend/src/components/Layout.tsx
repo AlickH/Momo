@@ -1,18 +1,72 @@
-import { useState } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { useApp } from '../context/AppContext';
-import { Button } from './ui';
+import { Button, Modal } from './ui';
 import { cn } from '../lib/cn';
 
 export function Layout() {
   const { status, statusError, refreshStatus } = useApp();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [retrying, setRetrying] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const prefixRef = useRef(false);
+  const prefixTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const coreState = status?.core.state ?? 'starting';
+
+  useEffect(() => {
+    const isTyping = (target: EventTarget | null) => {
+      const element = target as HTMLElement | null;
+      if (!element) return false;
+      const tag = element.tagName;
+      return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || element.isContentEditable;
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (isTyping(event.target)) return;
+      if (event.key === '?') {
+        event.preventDefault();
+        setShortcutsOpen((value) => !value);
+        return;
+      }
+      if (event.key === 'Escape') {
+        setShortcutsOpen(false);
+        prefixRef.current = false;
+        return;
+      }
+      if (prefixRef.current) {
+        const routes: Record<string, string> = {
+          o: '/',
+          p: '/proxies',
+          s: '/profiles',
+          c: '/connections',
+          r: '/rules',
+          l: '/logs',
+          e: '/settings',
+        };
+        if (routes[event.key]) {
+          event.preventDefault();
+          navigate(routes[event.key]);
+        }
+        prefixRef.current = false;
+        if (prefixTimer.current) clearTimeout(prefixTimer.current);
+        return;
+      }
+      if (event.key === 'g') {
+        prefixRef.current = true;
+        if (prefixTimer.current) clearTimeout(prefixTimer.current);
+        prefixTimer.current = setTimeout(() => { prefixRef.current = false; }, 1000);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      if (prefixTimer.current) clearTimeout(prefixTimer.current);
+    };
+  }, [navigate]);
 
   const retry = async () => {
     setRetrying(true);
@@ -56,6 +110,26 @@ export function Layout() {
           </div>
         </main>
       </div>
+      <Modal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} title="键盘快捷键" description="按 g 后松开，再按对应字母。">
+        <div className="space-y-2 text-[12px]">
+          {[
+            ['g o', '概览'],
+            ['g p', '代理'],
+            ['g s', '订阅'],
+            ['g c', '连接'],
+            ['g r', '规则'],
+            ['g l', '日志'],
+            ['g e', '设置'],
+            ['?', '打开/关闭快捷键'],
+            ['Esc', '关闭弹窗'],
+          ].map(([key, label]) => (
+            <div key={key} className="flex items-center justify-between border-b border-line/6 py-1.5 last:border-0">
+              <span className="text-muted">{label}</span>
+              <kbd className="rounded border border-line/15 bg-surface2 px-1.5 py-0.5 mono text-[10px] text-ink">{key}</kbd>
+            </div>
+          ))}
+        </div>
+      </Modal>
     </div>
   );
 }
