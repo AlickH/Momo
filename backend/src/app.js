@@ -160,6 +160,7 @@ function createApp({ env, service, logger }) {
   }));
 
   api.get('/rules', asyncRoute(async (req, res) => res.json(await service.getRules())));
+  api.patch('/rules/disable', asyncRoute(async (req, res) => res.json(await service.setRulesDisabled(req.body?.disabled))));
   api.get('/rule-providers', asyncRoute(async (req, res) => res.json(await service.getRuleProviders())));
   api.post('/rule-providers/update', asyncRoute(async (req, res) => {
     res.json(await service.updateRuleProvider(req.body?.name));

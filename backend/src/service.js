@@ -745,6 +745,19 @@ class MomoService {
     return { ok: true };
   }
 
+  async setRulesDisabled(disabled) {
+    if (!disabled || typeof disabled !== 'object' || Array.isArray(disabled)) throw badRequest('规则禁用参数无效');
+    if (!this.core.running) throw conflict('核心尚未运行');
+    const payload = {};
+    for (const [key, value] of Object.entries(disabled)) {
+      const index = Number(key);
+      if (!Number.isInteger(index) || index < 0 || typeof value !== 'boolean') throw badRequest('规则禁用参数无效');
+      payload[index] = value;
+    }
+    await this.core.controller.patchRulesDisabled(payload);
+    return this.getRules();
+  }
+
   async getRules() {
     const data = await this.core.controllerOrThrow().rules();
     return { rules: Array.isArray(data.rules) ? data.rules : [] };
