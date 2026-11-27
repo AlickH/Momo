@@ -16,7 +16,12 @@ export function Layout() {
   const navigate = useNavigate();
   const prefixRef = useRef(false);
   const prefixTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const mainRef = useRef<HTMLElement>(null);
   const coreState = status?.core.state ?? 'starting';
+
+  useEffect(() => {
+    mainRef.current?.scrollTo({ top: 0 });
+  }, [location.pathname]);
 
   useEffect(() => {
     const isTyping = (target: EventTarget | null) => {
@@ -102,7 +107,7 @@ export function Layout() {
             <Button variant="ghost" size="sm" icon={<RefreshCw className="h-3 w-3" />} loading={retrying} onClick={retry} className="h-6 px-2 text-[11px]">刷新</Button>
           </div>
         ) : null}
-        <main className="scrollbar-thin flex-1 overflow-y-auto">
+        <main ref={mainRef} className="scrollbar-thin flex-1 overflow-y-auto">
           <div className="mx-auto w-full max-w-[1480px] px-4 py-5 sm:px-5">
             <div key={location.pathname}>
               <Outlet />
