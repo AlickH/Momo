@@ -16,6 +16,9 @@ import {
   ShieldCheck,
   Timer,
   Waypoints,
+  Activity,
+  Globe2,
+  RefreshCw,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { usePolling } from '../hooks/usePolling';
@@ -24,6 +27,7 @@ import { api } from '../lib/api';
 import { useToast } from '../context/ToastContext';
 import { formatBytes, formatDate, formatExpiry, formatNumber, formatRate, formatUptime, percent, shortCoreVersion, timeAgo } from '../lib/format';
 import { TrafficChart } from '../components/TrafficChart';
+import { Sparkline } from '../components/Sparkline';
 import { Badge, Button, Card, ConfirmDialog, ProgressBar, Skeleton, StatusDot } from '../components/ui';
 import type { LogEntry, ProxiesData, SmartWeight } from '../types';
 
@@ -93,6 +97,8 @@ export function OverviewPage() {
   const { toast } = useToast();
   const now = useNow(1000);
   const [coreBusy, setCoreBusy] = useState(false);
+  const [ipBusy, setIpBusy] = useState(false);
+  const [ipResult, setIpResult] = useState<{ proxyIp: string; directIp: string; same: boolean; checkedAt: string } | null>(null);
   const [confirmStop, setConfirmStop] = useState(false);
   const proxies = usePolling<ProxiesData>(() => api.get('proxies'), 5000);
   const logs = usePolling<{ logs: LogEntry[] }>(() => api.get('logs?since=0&limit=6'), 8000);
@@ -201,6 +207,35 @@ export function OverviewPage() {
             <StatCard icon={<Cable className="h-4 w-4" />} label="活动连接" value={formatNumber(status!.connections)} sub={running ? '实时连接数' : '内核未运行'} />
             <StatCard icon={<Cpu className="h-4 w-4" />} label="内存占用" value={formatBytes(traffic?.memory ?? 0)} sub="mihomo 进程" />
           </div>
+
+          <Card>
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="flex items-center gap-2 text-sm font-semibold text-ink"><Activity className="h-4 w-4 text-accent" />运行趋势</h3>
+                <p className="mt-0.5 text-[12px] text-muted">最近 60 个采样</p>
+              </div>
+            </div>
+            <div className="mt-4 grid gap-5 sm:grid-cols-2">
+              <div>
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-muted">内存占用</span>
+                  <span className="text-ink">{formatBytes(traffic?.memory ?? 0)}</span>
+                </div>
+                <div className="mt-2 h-[46px]">
+                  <Sparkline values={(traffic?.memoryHistory ?? []).slice(-60).map((point) => point.value)} color="rgb(var(--chart-down))" />
+                </div>
+              </div>
+              <div>
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-muted">活动连接</span>
+                  <span className="text-ink">{formatNumber(status!.connections)}</span>
+                </div>
+                <div className="mt-2 h-[46px]">
+                  <Sparkline values={(traffic?.connectionsHistory ?? []).slice(-60).map((point) => point.value)} color="rgb(var(--accent))" />
+                </div>
+              </div>
+            </div>
+          </Card>
 
           <Card>
             <div className="flex items-center justify-between gap-3">
@@ -329,6 +364,42 @@ export function OverviewPage() {
                 <Link to="/profiles" className="mt-3 inline-flex"><Button variant="primary" size="sm">添加订阅</Button></Link>
               </div>
             )}
+          </Card>
+
+          <Card>
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="flex items-center gap-2 text-sm font-semibold text-ink"><Globe2 className="h-4 w-4 text-accent" />IP 检测</h3>
+                <p className="mt-0.5 text-[12px] text-muted">对比代理出口与直连出口</p>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                icon={<RefreshCw className="h-3.5 w-3.5" />}
+                loading={ipBusy}
+                onClick={async () => {
+                  setIpBusy(true);
+                  try {
+                    setIpResult(await api.post('ip-check', undefined, { timeoutMs: 30000 }));
+                  } catch (error) {
+                    toast(error instanceof Error ? error.message : 'IP 检测失败', 'error');
+                  } finally {
+                    setIpBusy(false);
+                  }
+                }}
+              >
+                检测
+              </Button>
+            </div>
+            <div className="mt-3 space-y-2">
+              {ipResult ? (
+                <>
+                  <div className="flex items-center justify-between text-[11px]"><span className="text-muted">代理出口</span><span className="mono text-ink">{ipResult.proxyIp || '—'}</span></div>
+                  <div className="flex items-center justify-between text-[11px]"><span className="text-muted">直连出口</span><span className="mono text-ink">{ipResult.directIp || '—'}</span></div>
+                  <div className="flex items-center justify-between text-[11px]"><span className="text-muted">状态</span><span className={ipResult.same ? 'text-warning' : 'text-success'}>{ipResult.same ? '与直连相同' : '已走代理'}</span></div>
+                </>
+              ) : <p className="py-2 text-center text-[11px] text-muted">点击检测获取当前出口 IP</p>}
+            </div>
           </Card>
 
           {Object.keys(smart.data?.weights ?? {}).length > 0 ? (

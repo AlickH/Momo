@@ -9,6 +9,7 @@ class StatsMonitor {
     this.reconnectTimer = null;
     this.trafficSocket = null;
     this.memorySocket = null;
+    this.connectionsTimer = null;
     this.reset();
   }
 
@@ -23,6 +24,14 @@ class StatsMonitor {
       t: Date.now() - (HISTORY_SIZE - 1 - index) * 1000,
       up: 0,
       down: 0,
+    }));
+    this.memoryHistory = Array.from({ length: HISTORY_SIZE }, (_, index) => ({
+      t: Date.now() - (HISTORY_SIZE - 1 - index) * 1000,
+      value: 0,
+    }));
+    this.connectionsHistory = Array.from({ length: HISTORY_SIZE }, (_, index) => ({
+      t: Date.now() - (HISTORY_SIZE - 1 - index) * 1000,
+      value: 0,
     }));
   }
 
@@ -50,6 +59,23 @@ class StatsMonitor {
     const generation = ++this.generation;
     this.connectTraffic(controller, generation);
     this.connectMemory(controller, generation);
+    this.connectionsTimer = setInterval(() => { void this.pollConnections(); }, 5000);
+    this.connectionsTimer.unref();
+    void this.pollConnections();
+  }
+
+  async pollConnections() {
+    if (!this.controller) return;
+    try {
+      const data = await this.controller.connections();
+      const value = Array.isArray(data?.connections) ? data.connections.length : 0;
+      this.connectionsHistory.push({ t: Date.now(), value });
+      if (this.connectionsHistory.length > HISTORY_SIZE) {
+        this.connectionsHistory.splice(0, this.connectionsHistory.length - HISTORY_SIZE);
+      }
+    } catch {
+      // Keep the last value while the controller is unavailable.
+    }
   }
 
   connectTraffic(controller, generation) {
@@ -93,6 +119,10 @@ class StatsMonitor {
       try {
         const data = JSON.parse(event.data);
         this.memory = Number(data.inuse) || 0;
+        this.memoryHistory.push({ t: Date.now(), value: this.memory });
+        if (this.memoryHistory.length > HISTORY_SIZE) {
+          this.memoryHistory.splice(0, this.memoryHistory.length - HISTORY_SIZE);
+        }
       } catch {
         // Ignore malformed memory frames.
       }
@@ -109,6 +139,8 @@ class StatsMonitor {
   detach() {
     this.generation += 1;
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    if (this.connectionsTimer) clearInterval(this.connectionsTimer);
+    this.connectionsTimer = null;
     this.reconnectTimer = null;
     for (const socket of [this.trafficSocket, this.memorySocket]) {
       if (!socket) continue;
@@ -132,6 +164,8 @@ class StatsMonitor {
       memory: this.memory,
       reachable: this.reachable,
       history: this.history,
+      memoryHistory: this.memoryHistory,
+      connectionsHistory: this.connectionsHistory,
     };
   }
 }

@@ -9,6 +9,7 @@ const { CoreManager } = require('./core');
 const { StatsMonitor } = require('./stats');
 const { TelegramBot } = require('./telegram');
 const { DdnsManager } = require('./ddns');
+const { checkIp } = require('./ip-check');
 const { TransparentManager } = require('./transparent');
 const { ProfileManager, fetchSubscription } = require('./profiles');
 const { SettingsStore } = require('./settings');
@@ -762,6 +763,22 @@ class MomoService {
       }
     }
     return { updated };
+  }
+
+  async checkIp() {
+    let auth = '';
+    try {
+      const parsed = parseProfile(await fs.readFile(this.configPath, 'utf8')).config;
+      const entry = Array.isArray(parsed.authentication) ? parsed.authentication[0] : null;
+      if (typeof entry === 'string') auth = entry;
+    } catch {
+      auth = '';
+    }
+    try {
+      return await checkIp(this.settings.get().mixedPort, auth);
+    } catch (error) {
+      throw new AppError(`IP 检测失败：${error.message}`, { status: 502, code: 'ip_check_failed' });
+    }
   }
 
   async getSmartWeights() {

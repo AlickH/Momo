@@ -77,6 +77,11 @@ export interface TrafficPoint {
   down: number;
 }
 
+export interface HistoryPoint {
+  t: number;
+  value: number;
+}
+
 export interface Traffic {
   up: number;
   down: number;
@@ -85,6 +90,8 @@ export interface Traffic {
   memory: number;
   reachable: boolean;
   history: TrafficPoint[];
+  memoryHistory?: HistoryPoint[];
+  connectionsHistory?: HistoryPoint[];
 }
 
 export interface Status {

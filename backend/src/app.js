@@ -168,6 +168,7 @@ function createApp({ env, service, logger }) {
   api.get('/smart/weights', asyncRoute(async (req, res) => res.json(await service.getSmartWeights())));
   api.post('/telegram/test', asyncRoute(async (req, res) => res.json(await service.testTelegram())));
   api.get('/ddns/status', asyncRoute(async (req, res) => res.json(await service.getDdnsStatus())));
+  api.post('/ip-check', asyncRoute(async (req, res) => res.json(await service.checkIp())));
   api.post('/ddns/update', asyncRoute(async (req, res) => res.json(await service.updateDdns())));
 
   api.get('/profiles', asyncRoute(async (req, res) => res.json({ profiles: await service.listProfiles() })));
