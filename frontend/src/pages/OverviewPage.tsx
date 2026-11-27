@@ -21,6 +21,7 @@ import {
   RefreshCw,
   ScrollText,
   Sparkles,
+  Settings2,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { usePolling } from '../hooks/usePolling';
@@ -30,8 +31,23 @@ import { useToast } from '../context/ToastContext';
 import { formatBytes, formatDate, formatExpiry, formatNumber, formatRate, formatUptime, percent, shortCoreVersion, timeAgo } from '../lib/format';
 import { TrafficChart } from '../components/TrafficChart';
 import { MiniChart } from '../components/MiniChart';
-import { Badge, Button, Card, ConfirmDialog, ProgressBar, Skeleton, StatusDot } from '../components/ui';
+import { Badge, Button, Card, ConfirmDialog, Modal, ProgressBar, Skeleton, StatusDot } from '../components/ui';
+import { cn } from '../lib/cn';
 import type { LogEntry, ProxiesData, SmartWeight } from '../types';
+
+const OVERVIEW_CARDS = [
+  { key: 'traffic', label: '实时流量' },
+  { key: 'stats', label: '统计卡片' },
+  { key: 'trends', label: '运行趋势' },
+  { key: 'groups', label: '策略组' },
+  { key: 'core', label: '内核状态' },
+  { key: 'profile', label: '当前配置' },
+  { key: 'ip', label: 'IP 检测' },
+  { key: 'smart', label: 'Smart 权重' },
+  { key: 'logs', label: '最近日志' },
+] as const;
+
+type OverviewCardKey = typeof OVERVIEW_CARDS[number]['key'];
 
 const stateLabel: Record<string, string> = {
   running: '运行中',
@@ -101,6 +117,24 @@ export function OverviewPage() {
   const [coreBusy, setCoreBusy] = useState(false);
   const [ipBusy, setIpBusy] = useState(false);
   const [ipResult, setIpResult] = useState<{ proxyIp: string; directIp: string; same: boolean; checkedAt: string } | null>(null);
+  const [cardsOpen, setCardsOpen] = useState(false);
+  const [visibleCards, setVisibleCards] = useState<Record<OverviewCardKey, boolean>>(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem('momo-overview-cards') || '{}');
+      return Object.fromEntries(OVERVIEW_CARDS.map((card) => [card.key, stored[card.key] !== false])) as Record<OverviewCardKey, boolean>;
+    } catch {
+      return Object.fromEntries(OVERVIEW_CARDS.map((card) => [card.key, true])) as Record<OverviewCardKey, boolean>;
+    }
+  });
+
+  const toggleCard = (key: OverviewCardKey, value: boolean) => {
+    setVisibleCards((previous) => {
+      const next = { ...previous, [key]: value };
+      localStorage.setItem('momo-overview-cards', JSON.stringify(next));
+      return next;
+    });
+  };
+  const cardClass = (key: OverviewCardKey, base?: string) => cn(base, !visibleCards[key] && 'hidden');
   const [confirmStop, setConfirmStop] = useState(false);
   const proxies = usePolling<ProxiesData>(() => api.get('proxies'), 5000);
   const logs = usePolling<{ logs: LogEntry[] }>(() => api.get('logs?since=0&limit=6'), 8000);
@@ -165,9 +199,12 @@ export function OverviewPage() {
 
   return (
     <div className="space-y-4">
+      <div className="flex justify-end">
+        <Button variant="ghost" size="sm" icon={<Settings2 className="h-3.5 w-3.5" />} onClick={() => setCardsOpen(true)}>卡片</Button>
+      </div>
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.62fr)_minmax(320px,1fr)]">
         <div className="space-y-4">
-          <Card className="overflow-hidden !p-0">
+          <Card className={cardClass('traffic', 'overflow-hidden !p-0')}>
             <div className="flex flex-wrap items-start justify-between gap-4 px-5 pt-5">
               <div>
                 <h3 className="flex items-center gap-2 text-sm font-semibold text-ink">
@@ -203,14 +240,14 @@ export function OverviewPage() {
             </div>
           </Card>
 
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className={cardClass('stats', 'grid grid-cols-2 gap-3 sm:grid-cols-4')}>
             <StatCard icon={<ArrowDownToLine className="h-4 w-4" />} label="下载总量" value={formatBytes(traffic?.downTotal ?? 0)} sub="本次内核运行" />
             <StatCard icon={<ArrowUpFromLine className="h-4 w-4" />} label="上传总量" value={formatBytes(traffic?.upTotal ?? 0)} sub="本次内核运行" />
             <StatCard icon={<Cable className="h-4 w-4" />} label="活动连接" value={formatNumber(status!.connections)} sub={running ? '实时连接数' : '内核未运行'} />
             <StatCard icon={<Cpu className="h-4 w-4" />} label="内存占用" value={formatBytes(traffic?.memory ?? 0)} sub="mihomo 进程" />
           </div>
 
-          <Card>
+          <Card className={cardClass('trends')}>
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="flex items-center gap-2 text-sm font-semibold text-ink"><Activity className="h-4 w-4 text-accent" />运行趋势</h3>
@@ -239,7 +276,7 @@ export function OverviewPage() {
             </div>
           </Card>
 
-          <Card>
+          <Card className={cardClass('groups')}>
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h3 className="flex items-center gap-2 text-sm font-semibold text-ink"><Waypoints className="h-4 w-4 text-accent" />策略组</h3>
@@ -276,7 +313,7 @@ export function OverviewPage() {
         </div>
 
         <div className="space-y-4">
-          <Card>
+          <Card className={cardClass('core')}>
             <div className="flex items-start justify-between">
               <div>
                 <h3 className="flex items-center gap-2 text-sm font-semibold text-ink"><Cpu className="h-4 w-4 text-accent" />内核状态</h3>
@@ -325,7 +362,7 @@ export function OverviewPage() {
             <div className="mt-2 flex items-center gap-1 text-[11px] text-muted/60"><ShieldCheck className="h-3 w-3" /> 仅管理员可管理</div>
           </Card>
 
-          <Card>
+          <Card className={cardClass('profile')}>
             <div className="flex items-start justify-between">
               <div>
                 <h3 className="flex items-center gap-2 text-sm font-semibold text-ink"><Layers className="h-4 w-4 text-accent" />当前配置</h3>
@@ -368,7 +405,7 @@ export function OverviewPage() {
             )}
           </Card>
 
-          <Card>
+          <Card className={cardClass('ip')}>
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="flex items-center gap-2 text-sm font-semibold text-ink"><Globe2 className="h-4 w-4 text-accent" />IP 检测</h3>
@@ -405,7 +442,7 @@ export function OverviewPage() {
           </Card>
 
           {Object.keys(smart.data?.weights ?? {}).length > 0 ? (
-            <Card>
+            <Card className={cardClass('smart')}>
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="flex items-center gap-2 text-sm font-semibold text-ink"><Sparkles className="h-4 w-4 text-accent" />Smart 权重</h3>
@@ -431,7 +468,7 @@ export function OverviewPage() {
             </Card>
           ) : null}
 
-          <Card>
+          <Card className={cardClass('logs')}>
             <div className="flex items-center justify-between">
               <h3 className="flex items-center gap-2 text-sm font-semibold text-ink"><ScrollText className="h-4 w-4 text-accent" />最近日志</h3>
               <Link to="/logs" className="text-[12px] text-accent hover:underline">查看全部</Link>
@@ -455,6 +492,22 @@ export function OverviewPage() {
         <span className="flex items-center gap-1.5"><Timer className="h-3 w-3" /> 实时推送 · 内核 {core.version ?? '—'}</span>
         <span>最近更新 {formatDate(proxies.lastUpdated ?? Date.now())}</span>
       </div>
+
+      <Modal open={cardsOpen} onClose={() => setCardsOpen(false)} title="概览卡片" description="选择要显示的卡片，设置保存在浏览器本地。">
+        <div className="space-y-1">
+          {OVERVIEW_CARDS.map((card) => (
+            <label key={card.key} className="flex cursor-pointer items-center justify-between rounded-lg px-2 py-2 text-[12px] text-ink hover:bg-surface2/50">
+              <span>{card.label}</span>
+              <input
+                type="checkbox"
+                checked={visibleCards[card.key]}
+                onChange={(event) => toggleCard(card.key, event.target.checked)}
+                className="h-4 w-4 accent-[rgb(var(--accent))]"
+              />
+            </label>
+          ))}
+        </div>
+      </Modal>
 
       <ConfirmDialog
         open={confirmStop}
