@@ -5,6 +5,7 @@ import {
   type ButtonHTMLAttributes,
   type InputHTMLAttributes,
   type ReactNode,
+  type CSSProperties,
 } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, Loader2, Search, X } from 'lucide-react';
@@ -59,12 +60,14 @@ export function Card({
   className,
   children,
   padded = true,
+  style,
 }: {
   className?: string;
   children: ReactNode;
   padded?: boolean;
+  style?: CSSProperties;
 }) {
-  return <div className={cn('card', padded && 'p-5', className)}>{children}</div>;
+  return <div className={cn('card', padded && 'p-5', className)} style={style}>{children}</div>;
 }
 
 const toneClasses = {

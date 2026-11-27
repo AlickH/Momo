@@ -22,6 +22,8 @@ import {
   ScrollText,
   Sparkles,
   Database,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { usePolling } from '../hooks/usePolling';
@@ -50,6 +52,19 @@ const OVERVIEW_CARDS = [
 ] as const;
 
 type OverviewCardKey = typeof OVERVIEW_CARDS[number]['key'];
+
+const CARD_COLUMN: Record<OverviewCardKey, 'left' | 'right'> = {
+  traffic: 'left',
+  stats: 'left',
+  trends: 'left',
+  providerTraffic: 'left',
+  groups: 'left',
+  core: 'right',
+  profile: 'right',
+  ip: 'right',
+  smart: 'right',
+  logs: 'right',
+};
 
 const stateLabel: Record<string, string> = {
   running: '运行中',
@@ -135,6 +150,18 @@ export function OverviewPage() {
     }
   });
 
+  const [cardOrder, setCardOrder] = useState<OverviewCardKey[]>(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem('momo-overview-order') || '[]') as OverviewCardKey[];
+      const known = new Set(OVERVIEW_CARDS.map((card) => card.key));
+      const valid = stored.filter((key) => known.has(key));
+      const missing = OVERVIEW_CARDS.map((card) => card.key).filter((key) => !valid.includes(key));
+      return [...valid, ...missing];
+    } catch {
+      return OVERVIEW_CARDS.map((card) => card.key);
+    }
+  });
+
   const toggleCard = (key: OverviewCardKey, value: boolean) => {
     setVisibleCards((previous) => {
       const next = { ...previous, [key]: value };
@@ -142,6 +169,22 @@ export function OverviewPage() {
       return next;
     });
   };
+  const moveCard = (key: OverviewCardKey, direction: -1 | 1) => {
+    setCardOrder((previous) => {
+      const column = CARD_COLUMN[key];
+      const columnKeys = previous.filter((item) => CARD_COLUMN[item] === column);
+      const index = columnKeys.indexOf(key);
+      const targetKey = columnKeys[index + direction];
+      if (!targetKey) return previous;
+      const next = [...previous];
+      const from = next.indexOf(key);
+      const to = next.indexOf(targetKey);
+      [next[from], next[to]] = [next[to], next[from]];
+      localStorage.setItem('momo-overview-order', JSON.stringify(next));
+      return next;
+    });
+  };
+  const cardStyle = (key: OverviewCardKey) => ({ order: cardOrder.indexOf(key) });
   const cardClass = (key: OverviewCardKey, base?: string) => cn(base, !visibleCards[key] && 'hidden');
   const [confirmStop, setConfirmStop] = useState(false);
   const proxies = usePolling<ProxiesData>(() => api.get('proxies'), 5000);
@@ -252,14 +295,14 @@ export function OverviewPage() {
             </div>
           </Card>
 
-          <div className={cardClass('stats', 'grid grid-cols-2 gap-3 sm:grid-cols-4')}>
+          <div style={cardStyle('stats')} className={cardClass('stats', 'grid grid-cols-2 gap-3 sm:grid-cols-4')}>
             <StatCard icon={<ArrowDownToLine className="h-4 w-4" />} label="下载总量" value={formatBytes(traffic?.downTotal ?? 0)} sub="本次内核运行" />
             <StatCard icon={<ArrowUpFromLine className="h-4 w-4" />} label="上传总量" value={formatBytes(traffic?.upTotal ?? 0)} sub="本次内核运行" />
             <StatCard icon={<Cable className="h-4 w-4" />} label="活动连接" value={formatNumber(status!.connections)} sub={running ? '实时连接数' : '内核未运行'} />
             <StatCard icon={<Cpu className="h-4 w-4" />} label="内存占用" value={formatBytes(traffic?.memory ?? 0)} sub="mihomo 进程" />
           </div>
 
-          <Card className={cardClass('trends')}>
+          <Card style={cardStyle('trends')} className={cardClass('trends')}>
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="flex items-center gap-2 text-sm font-semibold text-ink"><Activity className="h-4 w-4 text-accent" />运行趋势</h3>
@@ -288,7 +331,7 @@ export function OverviewPage() {
             </div>
           </Card>
 
-          <Card className={cardClass('providerTraffic')}>
+          <Card style={cardStyle('providerTraffic')} className={cardClass('providerTraffic')}>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h3 className="flex items-center gap-2 text-sm font-semibold text-ink"><Database className="h-4 w-4 text-accent" />订阅流量</h3>
@@ -325,7 +368,7 @@ export function OverviewPage() {
             )}
           </Card>
 
-          <Card className={cardClass('groups')}>
+          <Card style={cardStyle('groups')} className={cardClass('groups')}>
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h3 className="flex items-center gap-2 text-sm font-semibold text-ink"><Waypoints className="h-4 w-4 text-accent" />策略组</h3>
@@ -361,8 +404,8 @@ export function OverviewPage() {
           </Card>
         </div>
 
-        <div className="space-y-4">
-          <Card className={cardClass('core')}>
+        <div className="flex flex-col gap-4">
+          <Card style={cardStyle('core')} className={cardClass('core')}>
             <div className="flex items-start justify-between">
               <div>
                 <h3 className="flex items-center gap-2 text-sm font-semibold text-ink"><Cpu className="h-4 w-4 text-accent" />内核状态</h3>
@@ -411,7 +454,7 @@ export function OverviewPage() {
             <div className="mt-2 flex items-center gap-1 text-[11px] text-muted/60"><ShieldCheck className="h-3 w-3" /> 仅管理员可管理</div>
           </Card>
 
-          <Card className={cardClass('profile')}>
+          <Card style={cardStyle('profile')} className={cardClass('profile')}>
             <div className="flex items-start justify-between">
               <div>
                 <h3 className="flex items-center gap-2 text-sm font-semibold text-ink"><Layers className="h-4 w-4 text-accent" />当前配置</h3>
@@ -454,7 +497,7 @@ export function OverviewPage() {
             )}
           </Card>
 
-          <Card className={cardClass('ip')}>
+          <Card style={cardStyle('ip')} className={cardClass('ip')}>
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="flex items-center gap-2 text-sm font-semibold text-ink"><Globe2 className="h-4 w-4 text-accent" />IP 检测</h3>
@@ -494,7 +537,7 @@ export function OverviewPage() {
           </Card>
 
           {Object.keys(smart.data?.weights ?? {}).length > 0 ? (
-            <Card className={cardClass('smart')}>
+            <Card style={cardStyle('smart')} className={cardClass('smart')}>
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="flex items-center gap-2 text-sm font-semibold text-ink"><Sparkles className="h-4 w-4 text-accent" />Smart 权重</h3>
@@ -520,7 +563,7 @@ export function OverviewPage() {
             </Card>
           ) : null}
 
-          <Card className={cardClass('logs')}>
+          <Card style={cardStyle('logs')} className={cardClass('logs')}>
             <div className="flex items-center justify-between">
               <h3 className="flex items-center gap-2 text-sm font-semibold text-ink"><ScrollText className="h-4 w-4 text-accent" />最近日志</h3>
               <Link to="/logs" className="text-[12px] text-accent hover:underline">查看全部</Link>
@@ -546,18 +589,38 @@ export function OverviewPage() {
       </div>
 
       <Modal open={cardsOpen} onClose={() => setCardsOpen(false)} title="概览卡片" description="选择要显示的卡片，设置保存在浏览器本地。">
-        <div className="space-y-1">
-          {OVERVIEW_CARDS.map((card) => (
-            <label key={card.key} className="flex cursor-pointer items-center justify-between rounded-lg px-2 py-2 text-[12px] text-ink hover:bg-surface2/50">
-              <span>{card.label}</span>
-              <input
-                type="checkbox"
-                checked={visibleCards[card.key]}
-                onChange={(event) => toggleCard(card.key, event.target.checked)}
-                className="h-4 w-4 accent-[rgb(var(--accent))]"
-              />
-            </label>
-          ))}
+        <div className="space-y-4">
+          {(['left', 'right'] as const).map((column) => {
+            const columnKeys = cardOrder.filter((key) => CARD_COLUMN[key] === column);
+            return (
+              <div key={column}>
+                <div className="mb-1 px-2 text-[10px] uppercase tracking-[0.14em] text-muted/50">{column === 'left' ? '左栏' : '右栏'}</div>
+                <div className="space-y-1">
+                  {columnKeys.map((key) => {
+                    const card = OVERVIEW_CARDS.find((item) => item.key === key)!;
+                    const index = columnKeys.indexOf(key);
+                    return (
+              <div key={card.key} className="flex items-center justify-between rounded-lg px-2 py-2 text-[12px] text-ink hover:bg-surface2/50">
+                <label className="flex cursor-pointer items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={visibleCards[card.key]}
+                    onChange={(event) => toggleCard(card.key, event.target.checked)}
+                    className="h-4 w-4 accent-[rgb(var(--accent))]"
+                  />
+                  <span>{card.label}</span>
+                </label>
+                <div className="flex items-center gap-0.5">
+                  <button type="button" disabled={index === 0} onClick={() => moveCard(key, -1)} className="rounded p-1 text-muted transition hover:bg-surface3 hover:text-ink disabled:opacity-25" title="上移"><ChevronUp className="h-3.5 w-3.5" /></button>
+                  <button type="button" disabled={index === columnKeys.length - 1} onClick={() => moveCard(key, 1)} className="rounded p-1 text-muted transition hover:bg-surface3 hover:text-ink disabled:opacity-25" title="下移"><ChevronDown className="h-3.5 w-3.5" /></button>
+                </div>
+              </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </Modal>
 

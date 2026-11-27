@@ -1,9 +1,12 @@
+import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Monitor, Moon, Sun, X } from 'lucide-react';
+import { Loader2, Monitor, Moon, Play, RotateCw, Square, Sun, X } from 'lucide-react';
 import { NAV_ITEMS } from '../lib/nav';
 import { cn } from '../lib/cn';
 import { useApp } from '../context/AppContext';
-import { StatusDot } from './ui';
+import { ConfirmDialog, StatusDot } from './ui';
+import { api } from '../lib/api';
+import { useToast } from '../context/ToastContext';
 import { shortCoreVersion } from '../lib/format';
 
 const stateLabel: Record<string, string> = {
@@ -16,10 +19,27 @@ const stateLabel: Record<string, string> = {
 };
 
 export function Sidebar({ mobileOpen, onCloseMobile }: { mobileOpen: boolean; onCloseMobile: () => void }) {
-  const { status, theme, themeMode, toggleTheme, setThemeMode } = useApp();
+  const { status, theme, themeMode, toggleTheme, setThemeMode, refreshStatus } = useApp();
+  const { toast } = useToast();
+  const [coreBusy, setCoreBusy] = useState(false);
+  const [confirmStop, setConfirmStop] = useState(false);
   const coreState = status?.core.state ?? 'starting';
   const tone = coreState === 'running' ? 'success' : coreState === 'error' ? 'danger' : 'warning';
   const ThemeIcon = themeMode === 'auto' ? Monitor : theme === 'dark' ? Moon : Sun;
+
+  const runCoreAction = async (action: 'start' | 'stop' | 'restart') => {
+    setCoreBusy(true);
+    try {
+      await api.post(`core/${action}`, undefined, { timeoutMs: 90000 });
+      await refreshStatus();
+      setConfirmStop(false);
+      toast(action === 'start' ? 'mihomo 内核已启动' : action === 'stop' ? 'mihomo 内核已停止' : 'mihomo 内核已重启', 'success');
+    } catch (error) {
+      toast(error instanceof Error ? error.message : '操作失败', 'error');
+    } finally {
+      setCoreBusy(false);
+    }
+  };
 
   const cycleTheme = () => {
     if (themeMode === 'auto') {
@@ -76,6 +96,22 @@ export function Sidebar({ mobileOpen, onCloseMobile }: { mobileOpen: boolean; on
             <span className="truncate">{stateLabel[coreState] ?? coreState}</span>
             <span className="ml-auto max-w-[90px] truncate font-mono text-[10px] text-muted/70" title={status?.core.version ?? ''}>{shortCoreVersion(status?.core.version)}</span>
           </div>
+          <div className="mt-1 flex items-center gap-1 px-1">
+            {coreState === 'running' ? (
+              <>
+                <button type="button" disabled={coreBusy} onClick={() => setConfirmStop(true)} className="flex h-7 flex-1 items-center justify-center gap-1 rounded-md border border-line/10 text-[10px] text-muted transition hover:border-danger/20 hover:bg-danger/5 hover:text-danger disabled:opacity-40" title="停止内核">
+                  {coreBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Square className="h-3 w-3" />}停止
+                </button>
+                <button type="button" disabled={coreBusy} onClick={() => { void runCoreAction('restart'); }} className="flex h-7 flex-1 items-center justify-center gap-1 rounded-md border border-line/10 text-[10px] text-muted transition hover:border-accent/20 hover:bg-accent/5 hover:text-accent disabled:opacity-40" title="重启内核">
+                  <RotateCw className={cn('h-3 w-3', coreBusy && 'animate-spin')} />重启
+                </button>
+              </>
+            ) : (
+              <button type="button" disabled={coreBusy || ['starting', 'stopping', 'restarting'].includes(coreState)} onClick={() => { void runCoreAction('start'); }} className="flex h-7 w-full items-center justify-center gap-1 rounded-md border border-line/10 text-[10px] text-muted transition hover:border-success/20 hover:bg-success/5 hover:text-success disabled:opacity-40" title="启动内核">
+                {coreBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}启动
+              </button>
+            )}
+          </div>
           <button
             type="button"
             onClick={cycleTheme}
@@ -88,6 +124,16 @@ export function Sidebar({ mobileOpen, onCloseMobile }: { mobileOpen: boolean; on
           <div className="px-2 pt-1 text-[10px] text-muted/50">Momo v{status?.app.version ?? '1.0.0'}</div>
         </div>
       </aside>
+      <ConfirmDialog
+        open={confirmStop}
+        title="停止内核"
+        message="停止后代理端口将不再监听，所有客户端会立即断开。配置和订阅不会丢失，可以随时重新启动。确定停止吗？"
+        confirmText="停止"
+        danger
+        pending={coreBusy}
+        onClose={() => { if (!coreBusy) setConfirmStop(false); }}
+        onConfirm={() => { void runCoreAction('stop'); }}
+      />
     </>
   );
 }
