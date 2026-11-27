@@ -53,6 +53,7 @@ export interface Settings {
   ddnsRecordType: 'A' | 'AAAA';
   ddnsIntervalMinutes: number;
   customRules: string;
+  portForwards: PortForward[];
 }
 
 export interface SubscriptionInfo {
@@ -158,6 +159,16 @@ export interface Provider {
   count: number;
   updatedAt: string | null;
   subscriptionInfo: SubscriptionInfo | null;
+}
+
+export interface PortForward {
+  id: string;
+  name: string;
+  protocol: 'tcp' | 'udp';
+  listenPort: number;
+  targetHost: string;
+  targetPort: number;
+  enabled: boolean;
 }
 
 export interface DdnsStatus {

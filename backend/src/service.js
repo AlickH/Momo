@@ -10,6 +10,7 @@ const { StatsMonitor } = require('./stats');
 const { TelegramBot } = require('./telegram');
 const { DdnsManager } = require('./ddns');
 const { checkIp } = require('./ip-check');
+const { PortForwardManager } = require('./port-forward');
 const { TransparentManager } = require('./transparent');
 const { ProfileManager, fetchSubscription } = require('./profiles');
 const { SettingsStore } = require('./settings');
@@ -32,6 +33,7 @@ class MomoService {
     this.stats = new StatsMonitor({ logger });
     this.telegram = new TelegramBot({ service: this, logger });
     this.ddns = new DdnsManager({ logger });
+    this.portForward = new PortForwardManager({ logger });
     this.transparent = new TransparentManager({ logger });
     this.transparentState = { active: false, error: null };
     this.transparentBusy = false;
@@ -70,6 +72,7 @@ class MomoService {
     await this.settings.load();
     this.telegram.configure(this.settings.get());
     this.ddns.configure(this.settings.get());
+    await this.portForward.apply(this.settings.get().portForwards);
     await this.profiles.init();
     await this.copyGeodata();
     await this.fixCoreOwnership();
@@ -347,6 +350,7 @@ class MomoService {
     const next = await this.settings.update(patch);
     this.telegram.configure(next);
     this.ddns.configure(next);
+    await this.portForward.apply(next.portForwards);
     try {
       await this.core.restart();
       return next;
@@ -893,6 +897,7 @@ class MomoService {
   async shutdown() {
     this.telegram.stop();
     this.ddns.stop();
+    await this.portForward.clear();
     this.stats.detach();
     if (this.profileUpdateTimer) clearInterval(this.profileUpdateTimer);
     if (this.maintenanceTimer) clearInterval(this.maintenanceTimer);

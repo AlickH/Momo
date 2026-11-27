@@ -28,6 +28,9 @@ import {
   Globe,
   CalendarClock,
   FileCode2,
+  ArrowRightLeft,
+  Plus,
+  Trash2,
 } from 'lucide-react';
 import { useApp, type ThemeMode } from '../context/AppContext';
 import { api } from '../lib/api';
@@ -36,7 +39,7 @@ import { formatBytes, formatUptime } from '../lib/format';
 import { Badge, Button, Card, ConfirmDialog, CopyButton, Segmented, Switch } from '../components/ui';
 import { useNow } from '../hooks/useNow';
 import { usePolling } from '../hooks/usePolling';
-import type { DdnsStatus, LogLevel, Mode, Settings } from '../types';
+import type { DdnsStatus, LogLevel, Mode, PortForward, Settings } from '../types';
 
 const LOG_LEVELS: { value: LogLevel; label: string }[] = [
   { value: 'debug', label: '调试' },
@@ -74,6 +77,11 @@ export function SettingsPage() {
   const [backupBusy, setBackupBusy] = useState(false);
   const [telegramTesting, setTelegramTesting] = useState(false);
   const [ddnsBusy, setDdnsBusy] = useState(false);
+  const [pfName, setPfName] = useState('');
+  const [pfProtocol, setPfProtocol] = useState<'tcp' | 'udp'>('tcp');
+  const [pfListen, setPfListen] = useState('');
+  const [pfTarget, setPfTarget] = useState('');
+  const [pfTargetPort, setPfTargetPort] = useState('');
   const ddns = usePolling<DdnsStatus>(() => api.get('ddns/status'), 10000);
   const [restoreBusy, setRestoreBusy] = useState(false);
   const [pendingRestore, setPendingRestore] = useState<Record<string, unknown> | null>(null);
@@ -260,6 +268,88 @@ export function SettingsPage() {
               <span className="truncate">客户端代理地址</span>
               <span className="mono truncate text-ink/80">{clientAddress}</span>
               <CopyButton text={clientAddress} label="复制" />
+            </div>
+          </Card>
+
+          <Card>
+            <div className="flex items-center gap-2 border-b border-line/8 pb-3">
+              <ArrowRightLeft className="h-4 w-4 text-accent" />
+              <h3 className="text-sm font-semibold text-ink">端口转发</h3>
+            </div>
+            <div className="pt-3">
+              <p className="text-[11px] leading-relaxed text-muted">把发往 NAS 端口的 TCP/UDP 流量 DNAT 到内网 IP。需要 fnOS 防火墙放行对应端口；规则会写入独立的 <code className="mono text-ink">momo_pf</code> nft 表。</p>
+              <div className="mt-3 space-y-2">
+                {form.portForwards.length === 0 ? <p className="rounded-lg border border-dashed border-line/10 px-3 py-3 text-center text-[11px] text-muted">还没有端口转发</p> : null}
+                {form.portForwards.map((item: PortForward) => (
+                  <div key={item.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-line/8 px-2.5 py-2 text-[11px]">
+                    <input
+                      value={item.name}
+                      onChange={(event) => setForm((prev) => ({ ...prev, portForwards: prev.portForwards.map((row) => row.id === item.id ? { ...row, name: event.target.value } : row) }))}
+                      placeholder="备注"
+                      className="focus-ring h-7 w-20 rounded-md border border-line/10 bg-surface2 px-1.5 text-[10px] text-ink"
+                    />
+                    <select
+                      value={item.protocol}
+                      onChange={(event) => setForm((prev) => ({ ...prev, portForwards: prev.portForwards.map((row) => row.id === item.id ? { ...row, protocol: event.target.value as 'tcp' | 'udp' } : row) }))}
+                      className="focus-ring h-7 rounded-md border border-line/10 bg-surface2 px-1 text-[10px] text-ink"
+                    >
+                      <option value="tcp">TCP</option>
+                      <option value="udp">UDP</option>
+                    </select>
+                    <input
+                      value={item.listenPort}
+                      onChange={(event) => setForm((prev) => ({ ...prev, portForwards: prev.portForwards.map((row) => row.id === item.id ? { ...row, listenPort: Number(event.target.value) } : row) }))}
+                      className="focus-ring h-7 w-16 rounded-md border border-line/10 bg-surface2 px-1.5 text-right text-[10px] text-ink tabular"
+                    />
+                    <span className="text-muted">→</span>
+                    <input
+                      value={item.targetHost}
+                      onChange={(event) => setForm((prev) => ({ ...prev, portForwards: prev.portForwards.map((row) => row.id === item.id ? { ...row, targetHost: event.target.value } : row) }))}
+                      className="focus-ring h-7 w-32 rounded-md border border-line/10 bg-surface2 px-1.5 text-[10px] text-ink"
+                    />
+                    <span className="text-muted">:</span>
+                    <input
+                      value={item.targetPort}
+                      onChange={(event) => setForm((prev) => ({ ...prev, portForwards: prev.portForwards.map((row) => row.id === item.id ? { ...row, targetPort: Number(event.target.value) } : row) }))}
+                      className="focus-ring h-7 w-14 rounded-md border border-line/10 bg-surface2 px-1.5 text-right text-[10px] text-ink tabular"
+                    />
+                    <label className="flex items-center gap-1 text-[10px] text-muted">
+                      <input
+                        type="checkbox"
+                        checked={item.enabled}
+                        onChange={(event) => setForm((prev) => ({ ...prev, portForwards: prev.portForwards.map((row) => row.id === item.id ? { ...row, enabled: event.target.checked } : row) }))}
+                        className="h-3 w-3 accent-[rgb(var(--accent))]"
+                      />启用
+                    </label>
+                    <button type="button" onClick={() => setForm((prev) => ({ ...prev, portForwards: prev.portForwards.filter((row) => row.id !== item.id) }))} className="ml-auto text-muted hover:text-danger"><Trash2 className="h-3.5 w-3.5" /></button>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <input value={pfName} onChange={(event) => setPfName(event.target.value)} placeholder="备注" className="focus-ring h-8 w-20 rounded-lg border border-line/10 bg-surface2 px-2 text-[11px] text-ink" />
+                <select value={pfProtocol} onChange={(event) => setPfProtocol(event.target.value as 'tcp' | 'udp')} className="focus-ring h-8 rounded-lg border border-line/10 bg-surface2 px-1.5 text-[11px] text-ink">
+                  <option value="tcp">TCP</option><option value="udp">UDP</option>
+                </select>
+                <input value={pfListen} onChange={(event) => setPfListen(event.target.value)} placeholder="监听端口" className="focus-ring h-8 w-20 rounded-lg border border-line/10 bg-surface2 px-2 text-[11px] text-ink" />
+                <span className="text-muted">→</span>
+                <input value={pfTarget} onChange={(event) => setPfTarget(event.target.value)} placeholder="内网 IP" className="focus-ring h-8 w-32 rounded-lg border border-line/10 bg-surface2 px-2 text-[11px] text-ink" />
+                <input value={pfTargetPort} onChange={(event) => setPfTargetPort(event.target.value)} placeholder="目标端口" className="focus-ring h-8 w-20 rounded-lg border border-line/10 bg-surface2 px-2 text-[11px] text-ink" />
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  icon={<Plus className="h-3.5 w-3.5" />}
+                  onClick={() => {
+                    const listenPort = Number(pfListen);
+                    const targetPort = Number(pfTargetPort);
+                    if (!pfListen || !pfTarget || !pfTargetPort || listenPort < 1 || targetPort < 1) {
+                      toast('请填写监听端口、目标 IP 和目标端口', 'error');
+                      return;
+                    }
+                    setForm((prev) => ({ ...prev, portForwards: [...prev.portForwards, { id: crypto.randomUUID(), name: pfName.trim(), protocol: pfProtocol, listenPort, targetHost: pfTarget.trim(), targetPort, enabled: true }] }));
+                    setPfName(''); setPfListen(''); setPfTarget(''); setPfTargetPort('');
+                  }}
+                >添加</Button>
+              </div>
             </div>
           </Card>
 

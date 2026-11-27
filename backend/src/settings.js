@@ -43,6 +43,7 @@ const DEFAULTS = Object.freeze({
   ddnsRecordType: 'A',
   ddnsIntervalMinutes: 5,
   customRules: '',
+  portForwards: [],
 });
 
 const TUN_STACKS = new Set(['gvisor', 'system', 'mixed']);
@@ -143,6 +144,36 @@ function validateSettings(input) {
     if (input[key] !== undefined) {
       if (typeof input[key] !== 'boolean') errors.push(`${key} 必须是布尔值`);
       else result[key] = input[key];
+    }
+  }
+  if (input.portForwards !== undefined) {
+    if (!Array.isArray(input.portForwards) || input.portForwards.length > 20) {
+      errors.push('端口转发最多 20 条');
+    } else {
+      const forwards = [];
+      for (const item of input.portForwards) {
+        if (!isPlainObject(item)) {
+          errors.push('端口转发格式无效');
+          break;
+        }
+        const protocol = item.protocol === 'udp' ? 'udp' : 'tcp';
+        const listenPort = Number(item.listenPort);
+        const targetPort = Number(item.targetPort);
+        const targetHost = String(item.targetHost || '').trim();
+        if (!Number.isInteger(listenPort) || listenPort < 1 || listenPort > 65535) errors.push('端口转发监听端口无效');
+        if (!Number.isInteger(targetPort) || targetPort < 1 || targetPort > 65535) errors.push('端口转发目标端口无效');
+        if (!targetHost || targetHost.length > 255 || !/^[0-9a-fA-F:.]+$/.test(targetHost)) errors.push('端口转发目标地址必须是 IP');
+        forwards.push({
+          id: String(item.id || crypto.randomUUID()),
+          name: String(item.name || '').slice(0, 60),
+          protocol,
+          listenPort,
+          targetHost,
+          targetPort,
+          enabled: item.enabled !== false,
+        });
+      }
+      result.portForwards = forwards;
     }
   }
   if (input.customRules !== undefined) {

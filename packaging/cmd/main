@@ -60,6 +60,7 @@ start_app() {
 
   rm -f "$SOCKET_PATH"
   command -v nft >/dev/null 2>&1 && nft delete table inet momo 2>/dev/null || true
+  command -v nft >/dev/null 2>&1 && nft delete table inet momo_pf 2>/dev/null || true
   for family in -4 -6; do
     ip "$family" rule del fwmark 0x233 lookup 233 2>/dev/null || true
     ip "$family" route flush table 233 2>/dev/null || true
@@ -127,6 +128,7 @@ stop_app() {
 
   rm -f "$PID_FILE" "$SOCKET_PATH"
   command -v nft >/dev/null 2>&1 && nft delete table inet momo 2>/dev/null || true
+  command -v nft >/dev/null 2>&1 && nft delete table inet momo_pf 2>/dev/null || true
   for family in -4 -6; do
     ip "$family" rule del fwmark 0x233 lookup 233 2>/dev/null || true
     ip "$family" route flush table 233 2>/dev/null || true
