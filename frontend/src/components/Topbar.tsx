@@ -1,5 +1,5 @@
 import { useLocation } from 'react-router-dom';
-import { ArrowDownLeft, ArrowUpRight, Globe2, ListFilter, Menu, MinusCircle } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, Globe2, ListFilter, Menu, MinusCircle, Settings2 } from 'lucide-react';
 import { pageMeta } from '../lib/nav';
 import { useApp } from '../context/AppContext';
 import { formatRate, initialOf } from '../lib/format';
@@ -48,6 +48,18 @@ export function Topbar({ onOpenMobile }: { onOpenMobile: () => void }) {
             <span className="tabular text-ink/80">{formatRate(traffic?.down ?? 0)}</span>
           </span>
         </div>
+
+        {location.pathname === '/' ? (
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent('momo:overview-cards'))}
+            className="flex h-8 items-center gap-1.5 rounded-lg border border-line/10 bg-surface2 px-2.5 text-[11px] font-medium text-muted transition hover:border-accent/20 hover:text-ink"
+            title="选择概览卡片"
+          >
+            <Settings2 className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">卡片</span>
+          </button>
+        ) : null}
 
         <Segmented<Mode>
           size="sm"

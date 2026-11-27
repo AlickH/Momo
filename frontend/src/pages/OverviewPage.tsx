@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowDownToLine,
@@ -21,7 +21,6 @@ import {
   RefreshCw,
   ScrollText,
   Sparkles,
-  Settings2,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { usePolling } from '../hooks/usePolling';
@@ -118,6 +117,12 @@ export function OverviewPage() {
   const [ipBusy, setIpBusy] = useState(false);
   const [ipResult, setIpResult] = useState<{ proxyIp: string; directIp: string; same: boolean; checkedAt: string } | null>(null);
   const [cardsOpen, setCardsOpen] = useState(false);
+
+  useEffect(() => {
+    const openCards = () => setCardsOpen(true);
+    window.addEventListener('momo:overview-cards', openCards);
+    return () => window.removeEventListener('momo:overview-cards', openCards);
+  }, []);
   const [visibleCards, setVisibleCards] = useState<Record<OverviewCardKey, boolean>>(() => {
     try {
       const stored = JSON.parse(localStorage.getItem('momo-overview-cards') || '{}');
@@ -199,9 +204,6 @@ export function OverviewPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
-        <Button variant="ghost" size="sm" icon={<Settings2 className="h-3.5 w-3.5" />} onClick={() => setCardsOpen(true)}>卡片</Button>
-      </div>
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.62fr)_minmax(320px,1fr)]">
         <div className="space-y-4">
           <Card className={cardClass('traffic', 'overflow-hidden !p-0')}>
