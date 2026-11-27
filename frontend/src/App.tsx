@@ -8,6 +8,7 @@ import { OverviewPage } from './pages/OverviewPage';
 import { ProxiesPage } from './pages/ProxiesPage';
 import { ProfilesPage } from './pages/ProfilesPage';
 import { ConnectionsPage } from './pages/ConnectionsPage';
+import { TopologyPage } from './pages/TopologyPage';
 import { RulesPage } from './pages/RulesPage';
 import { LogsPage } from './pages/LogsPage';
 import { SettingsPage } from './pages/SettingsPage';
@@ -45,6 +46,7 @@ function Gate() {
         <Route path="proxies" element={<ProxiesPage />} />
         <Route path="profiles" element={<ProfilesPage />} />
         <Route path="connections" element={<ConnectionsPage />} />
+        <Route path="topology" element={<TopologyPage />} />
         <Route path="rules" element={<RulesPage />} />
         <Route path="logs" element={<LogsPage />} />
         <Route path="settings" element={<SettingsPage />} />

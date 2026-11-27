@@ -49,6 +49,7 @@ export function Layout() {
           s: '/profiles',
           c: '/connections',
           r: '/rules',
+          t: '/topology',
           l: '/logs',
           e: '/settings',
         };
@@ -123,6 +124,7 @@ export function Layout() {
             ['g s', '订阅'],
             ['g c', '连接'],
             ['g r', '规则'],
+            ['g t', '拓扑'],
             ['g l', '日志'],
             ['g e', '设置'],
             ['?', '打开/关闭快捷键'],
