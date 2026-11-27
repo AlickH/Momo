@@ -1,5 +1,5 @@
 import { useDeferredValue, useMemo, useState } from 'react';
-import { ArrowDownLeft, ArrowUpRight, Cable, Eye, RefreshCw, SearchX, Timer, X, XCircle } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, Cable, Eye, History, RefreshCw, SearchX, Timer, Trash2, X, XCircle } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { usePolling } from '../hooks/usePolling';
 import { useNow } from '../hooks/useNow';
@@ -8,7 +8,7 @@ import { useToast } from '../context/ToastContext';
 import { formatBytes, formatDate, formatDuration } from '../lib/format';
 import { Badge, Button, Card, ConfirmDialog, CopyButton, EmptyState, Modal, SearchInput, Skeleton } from '../components/ui';
 import { cn } from '../lib/cn';
-import type { Connection, ConnectionsData } from '../types';
+import type { Connection, ConnectionHistory, ConnectionsData } from '../types';
 
 function durationOf(start: string, now: number): number {
   const value = new Date(start).getTime();
@@ -33,6 +33,8 @@ export function ConnectionsPage() {
   const [confirmAll, setConfirmAll] = useState(false);
   const [limit, setLimit] = useState(200);
   const [detail, setDetail] = useState<Connection | null>(null);
+  const [historyBy, setHistoryBy] = useState('sourceIP');
+  const history = usePolling<ConnectionHistory>(() => api.get(`connections/history?by=${historyBy}`), 5000);
 
   const filtered = useMemo(() => {
     const items = connections.data?.connections ?? [];
@@ -101,6 +103,65 @@ export function ConnectionsPage() {
       {!running ? (
         <div className="rounded-xl border border-danger/15 bg-danger/6 px-4 py-3 text-xs text-danger">mihomo 当前未运行，无法读取连接。{status?.core.lastError ? <span className="ml-1 opacity-80">{status.core.lastError}</span> : null}<button type="button" onClick={() => { void refreshStatus(); }} className="ml-2 underline">刷新状态</button></div>
       ) : null}
+
+      <Card>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 className="flex items-center gap-2 text-sm font-semibold text-ink"><History className="h-4 w-4 text-accent" />历史连接</h3>
+            <p className="mt-0.5 text-[12px] text-muted">仅记录本次应用运行期间关闭的连接</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={historyBy}
+              onChange={(event) => setHistoryBy(event.target.value)}
+              className="focus-ring h-8 rounded-lg border border-line/10 bg-surface2 px-2 text-[11px] text-ink"
+            >
+              <option value="sourceIP">按来源 IP</option>
+              <option value="destination">按目标</option>
+              <option value="process">按进程</option>
+              <option value="outbound">按出站</option>
+              <option value="rule">按规则</option>
+            </select>
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={<Trash2 className="h-3.5 w-3.5" />}
+              onClick={async () => {
+                try {
+                  await api.delete('connections/history');
+                  await history.refresh();
+                  toast('历史连接已清空', 'success');
+                } catch (error) {
+                  toast(error instanceof Error ? error.message : '清空失败', 'error');
+                }
+              }}
+            >
+              清空
+            </Button>
+          </div>
+        </div>
+        {history.data && history.data.items.length > 0 ? (
+          <>
+            <div className="mt-3 grid grid-cols-3 gap-3 rounded-lg border border-line/6 bg-surface2/30 p-3 text-[11px]">
+              <div><span className="text-muted">条目</span><div className="mt-1 text-sm text-ink">{history.data.items.length}</div></div>
+              <div><span className="text-muted">下载</span><div className="mt-1 text-sm text-ink">{formatBytes(history.data.totals.download)}</div></div>
+              <div><span className="text-muted">上传</span><div className="mt-1 text-sm text-ink">{formatBytes(history.data.totals.upload)}</div></div>
+            </div>
+            <div className="mt-3 divide-y divide-line/5">
+              {history.data.items.slice(0, 50).map((item) => (
+                <div key={item.key} className="flex items-center gap-3 py-2">
+                  <div className="min-w-0 flex-1 truncate text-[11px] text-ink" title={item.key}>{item.key}</div>
+                  <span className="shrink-0 text-[10px] text-muted/60">{item.count} 次</span>
+                  <span className="shrink-0 text-[10px] text-muted/60">↓{formatBytes(item.download)}</span>
+                  <span className="shrink-0 text-[10px] text-muted/60">↑{formatBytes(item.upload)}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        ) : (
+          <p className="mt-4 rounded-xl border border-dashed border-line/10 px-4 py-6 text-center text-[12px] text-muted">还没有关闭的连接记录</p>
+        )}
+      </Card>
 
       <Card padded={false} className="overflow-hidden">
         {connections.loading && !connections.data ? (

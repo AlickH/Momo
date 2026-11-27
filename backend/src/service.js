@@ -786,6 +786,41 @@ class MomoService {
     return { weights: data.weights || {} };
   }
 
+  getConnectionHistory(by = 'sourceIP') {
+    const fields = {
+      sourceIP: (item) => item.metadata?.sourceIP || '',
+      destination: (item) => item.metadata?.host || item.metadata?.destinationIP || '',
+      process: (item) => item.metadata?.process || item.metadata?.processPath || '',
+      outbound: (item) => (Array.isArray(item.chains) && item.chains[0]) || '',
+      rule: (item) => item.rule || '',
+    };
+    const keyOf = fields[by] || fields.sourceIP;
+    const aggregates = new Map();
+    for (const item of this.stats.connectionHistory) {
+      const key = keyOf(item) || '未知';
+      const entry = aggregates.get(key) || { key, upload: 0, download: 0, count: 0 };
+      entry.upload += Number(item.upload) || 0;
+      entry.download += Number(item.download) || 0;
+      entry.count += 1;
+      aggregates.set(key, entry);
+    }
+    const items = [...aggregates.values()].sort((a, b) => (b.upload + b.download) - (a.upload + a.download));
+    return {
+      by,
+      items,
+      totals: items.reduce((total, item) => ({
+        upload: total.upload + item.upload,
+        download: total.download + item.download,
+        count: total.count + item.count,
+      }), { upload: 0, download: 0, count: 0 }),
+    };
+  }
+
+  clearConnectionHistory() {
+    this.stats.connectionHistory = [];
+    return { ok: true };
+  }
+
   async getConnections() {
     const data = await this.core.controllerOrThrow().connections();
     const connections = (Array.isArray(data.connections) ? data.connections : []).map((item) => ({

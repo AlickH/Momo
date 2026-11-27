@@ -219,6 +219,19 @@ export interface ConnectionsData {
   connections: Connection[];
 }
 
+export interface ConnectionHistoryItem {
+  key: string;
+  upload: number;
+  download: number;
+  count: number;
+}
+
+export interface ConnectionHistory {
+  by: string;
+  items: ConnectionHistoryItem[];
+  totals: { upload: number; download: number; count: number };
+}
+
 export interface LogEntry {
   id: number;
   time: number;

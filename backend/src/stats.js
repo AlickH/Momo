@@ -33,6 +33,8 @@ class StatsMonitor {
       t: Date.now() - (HISTORY_SIZE - 1 - index) * 1000,
       value: 0,
     }));
+    this.activeConnections = new Map();
+    this.connectionHistory = [];
   }
 
   onSample(listener) {
@@ -68,8 +70,22 @@ class StatsMonitor {
     if (!this.controller) return;
     try {
       const data = await this.controller.connections();
-      const value = Array.isArray(data?.connections) ? data.connections.length : 0;
-      this.connectionsHistory.push({ t: Date.now(), value });
+      const current = Array.isArray(data?.connections) ? data.connections : [];
+      const currentIds = new Set();
+      for (const item of current) {
+        if (!item?.id) continue;
+        currentIds.add(item.id);
+        this.activeConnections.set(item.id, item);
+      }
+      for (const [id, item] of this.activeConnections) {
+        if (currentIds.has(id)) continue;
+        this.connectionHistory.push({ ...item, closedAt: Date.now() });
+        this.activeConnections.delete(id);
+      }
+      if (this.connectionHistory.length > 1000) {
+        this.connectionHistory.splice(0, this.connectionHistory.length - 1000);
+      }
+      this.connectionsHistory.push({ t: Date.now(), value: current.length });
       if (this.connectionsHistory.length > HISTORY_SIZE) {
         this.connectionsHistory.splice(0, this.connectionsHistory.length - HISTORY_SIZE);
       }

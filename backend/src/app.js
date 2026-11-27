@@ -123,6 +123,8 @@ function createApp({ env, service, logger }) {
     });
   });
   api.get('/connections', asyncRoute(async (req, res) => res.json(await service.getConnections())));
+  api.get('/connections/history', asyncRoute(async (req, res) => res.json(service.getConnectionHistory(String(req.query.by || 'sourceIP')))));
+  api.delete('/connections/history', (req, res) => res.json(service.clearConnectionHistory()));
   api.delete('/connections/:id', asyncRoute(async (req, res) => {
     res.json(await service.closeConnection(req.params.id));
   }));
